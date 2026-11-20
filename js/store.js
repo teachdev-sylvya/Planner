@@ -8,7 +8,7 @@
 "use strict";
 window.__plannerDevy=true;
 const APPNAME="planner-devy", GIST_DESC="Planner Devy — data terenkripsi (jangan dihapus)", META_FILE="pdv-meta.json";
-const ITER=250000, CHUNK=700000, BATCH=5, ASSET_SYNC_MAX=30*1024*1024, ASSET_DESC="Planner Devy — file terenkripsi ";
+const ITER=250000, CHUNK=700000, BATCH=4, MAXREQ=2800000, ASSET_SYNC_MAX=30*1024*1024, ASSET_DESC="Planner Devy — file terenkripsi ";
 const enc=new TextEncoder(), dec=new TextDecoder();
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -110,7 +110,9 @@ function schedulePush(ms){if(!CFG.token)return;clearTimeout(pushT);pushT=setTime
 async function gh(path,opt){const r=await fetch("https://api.github.com"+path,Object.assign({},opt,{headers:Object.assign({"Accept":"application/vnd.github+json","Authorization":"Bearer "+CFG.token},opt&&opt.body?{"Content-Type":"application/json"}:{})}));
   if(!r.ok){const t=await r.text().catch(()=>"");const e=new Error(r.status===401?"Token GitHub tidak valid / kedaluwarsa":r.status===404?"Gist tidak ditemukan":"GitHub "+r.status+" "+t.slice(0,120));e.status=r.status;throw e}return r.status===204?null:r.json()}
 async function findGist(){let page=1;while(page<6){const l=await gh("/gists?per_page=100&page="+page);if(!l.length)break;const g=l.find(x=>x.description===GIST_DESC||(x.files&&x.files[META_FILE]));if(g)return g.id;page++}return null}
-async function gistFile(g,name){const f=g.files&&g.files[name];if(!f)return null;if(!f.truncated&&f.content!=null)return f.content;const r=await fetch(f.raw_url);if(!r.ok)throw new Error("Gagal mengambil "+name);return r.text()}
+async function gistFile(g,name){const f=g.files&&g.files[name];
+  if(!f){const sha=g.history&&g.history[0]&&g.history[0].version;const own=(g.owner&&g.owner.login)||CFG.login;if(!sha||!own)return null;
+    try{const r=await fetch("https://gist.githubusercontent.com/"+own+"/"+g.id+"/raw/"+sha+"/"+encodeURIComponent(name));return r.ok?r.text():null}catch(e){return null}}if(!f.truncated&&f.content!=null)return f.content;const r=await fetch(f.raw_url);if(!r.ok)throw new Error("Gagal mengambil "+name);return r.text()}
 const colFiles=(name,n)=>Array.from({length:n},(_,k)=>"c~"+name.replace(/[^A-Za-z0-9_-]/g,"_")+"~"+k+".txt");
 const astFiles=(id,n)=>Array.from({length:n},(_,k)=>"a~"+id+"~"+k+".txt");
 function splitStr(s){const out=[];for(let i=0;i<s.length;i+=CHUNK)out.push(s.slice(i,i+CHUNK));return out.length?out:[""]}
@@ -133,8 +135,9 @@ async function syncOnce(){
     /* tarik koleksi yang lebih baru di GitHub */
     let got=0;
     for(const name in (rm.cols||{})){const rc=rm.cols[name];if((CFG.cols||{})[name]===rc.t)continue;
-      const parts=[];for(const f of colFiles(name,rc.n)){const s=await gistFile(g,f);if(s==null)throw new Error("File data "+f+" hilang");parts.push(s)}
-      const obj=await unpack(b64d(parts.join("")));
+      const parts=[];let miss=false;for(const f of colFiles(name,rc.n)){const s=await gistFile(g,f);if(s==null){miss=true;break}parts.push(s)}
+      let obj=null;if(!miss){try{obj=await unpack(b64d(parts.join("")))}catch(e){miss=true}}
+      if(miss){console.warn("bagian data belum lengkap di GitHub:",name);DIRTY.add(name);continue}
       if(name==="~aset"){for(const id in obj){const r=obj[id],l=ASSETS[id];if(!l||r.t>l.t){ASSETS[id]=r;if(r.del){await kvDel(id,"aset");delete URLS[id]}}}}
       else for(const p in obj){const [t,d]=obj[p];const l=DOCS[p];if(!l||t>l.t){DOCS[p]={t,d};touch(p);got++}}
       CFG.cols=CFG.cols||{};CFG.cols[name]=rc.t}
@@ -160,7 +163,9 @@ async function syncOnce(){
     if(a.del){if(meta.assets[id]){const ma=meta.assets[id];if(ma.g){try{await gh("/gists/"+ma.g,{method:"DELETE"})}catch(e){}}else astFiles(id,ma.n).forEach(f=>files[f]=null);delete meta.assets[id];any=true}continue}
     if(meta.assets[id]||a.size>ASSET_SYNC_MAX)continue;const e=await kvGet(id,"aset");if(!e)continue;astUploads.push([id,e])}
   if(any||astUploads.length||!rm){
-    if(any||!rm){meta.t=Date.now();files[META_FILE]={content:JSON.stringify(meta)};await writeGist(files)}
+    if(any||!rm){const ks=Object.keys(files);let grp={},sz=0,done=0;
+      for(const k of ks){const v=files[k];const n=v?v.content.length:0;if(sz&&sz+n>MAXREQ){status("⬆️ Mengirim data "+Math.round(done/ks.length*100)+"%…");await writeGist(grp);grp={};sz=0}grp[k]=v;sz+=n;done++}
+      meta.t=Date.now();grp[META_FILE]={content:JSON.stringify(meta)};await writeGist(grp)}
     /* aset dikirim satu per satu supaya permintaan tidak terlalu besar */
     /* tiap file disimpan di gist tersendiri supaya sinkron data harian tetap ringan */
     let ui=0;for(const [id,e] of astUploads){ui++;const parts=splitStr(b64e(e));const names=astFiles(id,parts.length);let gid=null;
@@ -172,7 +177,7 @@ async function syncOnce(){
   }
   DIRTY.clear();await saveCfg()}
 async function writeGist(files){
-  if(!CFG.gistId){const g=await gh("/gists",{method:"POST",body:JSON.stringify({description:GIST_DESC,public:false,files:Object.fromEntries(Object.entries(files).filter(([k,v])=>v))})});CFG.gistId=g.id;await saveCfg()}
+  if(!CFG.gistId){const f=Object.fromEntries(Object.entries(files).filter(([k,v])=>v));if(!Object.keys(f).length)return;const g=await gh("/gists",{method:"POST",body:JSON.stringify({description:GIST_DESC,public:false,files:f})});CFG.gistId=g.id;await saveCfg()}
   else await gh("/gists/"+CFG.gistId,{method:"PATCH",body:JSON.stringify({description:GIST_DESC,files})})}
 
 /* ================== tampilan ================== */
