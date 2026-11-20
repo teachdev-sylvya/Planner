@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Planner Devy</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#3f5f8f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="robots" content="noindex">
+<meta name="apple-mobile-web-app-title" content="Planner Devy">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&family=Patrick+Hand&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="app.css?v=1">
+</head>
+<body>
+<nav class="rail" id="toolbar">
+  <button class="homebtn" id="homeHouse" title="Ke halaman awal (Sampul)"><img src="home.png" alt="Rumah" style="width:50px;height:44px;object-fit:contain;display:block"></button>
+  <button class="rb" id="backBtn" title="Kembali ke halaman sebelumnya"><i>‹</i><small>Kembali</small></button>
+  <button class="rb" id="homeBtn" title="Daftar isi"><i>☰</i><small>Daftar Isi</small></button>
+  <button class="rb" id="jumpRail" title="Lompat ke halaman (tombol G)"><i>🔖</i><small>Lompat</small></button>
+  <span class="crumb" id="crumb" hidden></span>
+  <span class="rsep"></span>
+  <button class="rb on" data-mode="type" title="Mode ketik"><i>⌨</i><small>Ketik</small></button>
+  <button class="rb" data-mode="ink" title="Mode tulis tangan, stiker & gambar"><i>✎</i><small>Tulis</small></button>
+  <span class="rsep zoom"></span>
+  <div class="zoom rzoom"><button class="rb mini" id="zIn" title="Perbesar"><i>＋</i></button><button class="rb mini" id="zFit" title="Kembali 100%">100%</button><button class="rb mini" id="zOut" title="Perkecil"><i>－</i></button></div>
+  <span class="rsep"></span>
+  <button class="rb" id="undoBtn" title="Undo (Ctrl+Z)" disabled><i>↶</i><small>Undo</small></button>
+  <button class="rb" id="redoBtn" title="Redo (Ctrl+Y)" disabled><i>↷</i><small>Redo</small></button>
+  <button class="rb primary" id="addBtn" title="Tambah agenda / tugas"><i>＋</i><small>Agenda</small></button>
+  <span style="flex:1"></span>
+  <button class="rb" id="sheetBtn" title="Pilih tampilan: Lembar (ukuran tetap, dibalik ke kiri-kanan) atau Gulir (memanjang ke bawah)"><i>📄</i><small>Lembar</small></button>
+  <button class="rb" id="bookBtn" title="Mode buku: sampul 3D, layar penuh, geser untuk membalik halaman"><i>📖</i><small>Mode buku</small></button>
+  <button class="rb" id="fsBtn" title="Layar penuh"><i>⛶</i><small>Layar penuh</small></button>
+  <button class="rb" id="railHide" title="Sembunyikan menu"><i>«</i><small>Sembunyi</small></button>
+  <span class="status" id="status">Memuat…</span>
+</nav>
+<button class="railshow" id="railShow" title="Tampilkan menu">☰</button>
+<div class="inkrow" id="inkRow">
+  <div class="ihead">✎ Alat tulis</div>
+  <div class="grp" id="toolsA"></div>
+  <div class="grp" id="toolsB"></div>
+  <div class="grp forEraser"><button class="tb sq on" data-emode="stroke" style="font-size:11px">Hapus goresan</button><button class="tb sq" data-emode="part" style="font-size:11px">Hapus sebagian</button></div>
+  <div class="grp forColor" id="swatches"></div>
+  <div class="grp rng" id="sizeGrp"><span class="prev"><i id="szPrev"></i></span><input type="range" id="szRange" min="1" max="60" step="0.5"><span id="szVal"></span></div>
+  <div class="grp rng forOpa"><span>Tebal warna</span><input type="range" id="opRange" min="10" max="100" step="5"><span id="opVal"></span></div>
+  <button class="tb sq forDraw" id="straightBtn" title="Garis lurus">📏 Lurus</button>
+  <button class="tb sq" id="stylusBtn" title="Hanya stylus yang menulis; jari untuk menggulir & zoom">🖊️ Stylus saja</button>
+  <div class="ihead">Sisipkan</div>
+  <button class="tb" id="stickerBtn">🌸 Stiker</button>
+  <label class="tb" id="imgBtn" for="imgInput" style="cursor:pointer">🖼️ Gambar/Foto</label>
+  <label class="tb" id="pdfBtn" for="pdfInput" style="cursor:pointer">📄 PDF</label>
+</div>
+<input type="file" id="imgInput" class="vh" accept="image/*" multiple>
+<input type="file" id="pdfInput" class="vh" accept="application/pdf">
+<input type="file" id="stInput" class="vh" accept="image/*" multiple>
+<div class="modal-bg" id="stickerBg"><div class="modal" style="max-width:640px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><h2 style="margin:0">Stiker</h2><button class="tb sq" id="stClose">✕</button></div>
+  <div class="seg" style="margin-bottom:12px"><button type="button" data-sttab="bawaan" class="on">🌸 Bawaan</button><button type="button" data-sttab="mine">⭐ Stiker Saya</button></div>
+  <div id="stBody" style="max-height:62vh;overflow:auto;padding:2px"></div>
+</div></div>
+
+<div class="stage" id="stage"><div class="page" id="page"></div></div>
+<div class="appwrap" id="appwrap"><div class="apptabs" id="apptabs"></div><div id="appCover"></div><div id="migr"></div><iframe class="appframe" id="frame-teacher" title="Teacher Dev"></iframe><iframe class="appframe" id="frame-wakasek" title="Sistem Wakasek Kurikulum"></iframe></div>
+
+<div class="modal-bg" id="modalBg">
+  <div class="modal" role="dialog" aria-modal="true">
+    <h2 id="mTitle">Tambah</h2>
+    <form id="form">
+      <div class="f seg" id="kindSeg">
+        <button type="button" data-k="agenda" class="on">📅 Agenda / Jadwal</button>
+        <button type="button" data-k="tugas">✅ Tugas / Tenggat</button>
+      </div>
+      <div class="f"><label>Judul</label><input id="fTitle" required placeholder="mis. Rapat MGMP, Latihan PT, Makalah kurikulum"></div>
+      <div class="row">
+        <div class="f"><label>Kategori</label><select id="fCat"></select></div>
+        <div class="f" id="prioBox"><label>Prioritas</label>
+          <select id="fPrio"><option value="tinggi">Tinggi</option><option value="sedang" selected>Sedang</option><option value="rendah">Rendah</option></select></div>
+      </div>
+      <div class="row" id="s2Row" style="display:none">
+        <div class="f"><label>Mata kuliah</label><select id="fMk"></select></div>
+        <div class="f"><label>Jenis tugas</label><select id="fJenis"><option value="individu">👤 Individu</option><option value="kelompok">👥 Kelompok</option><option value="akhir">🎓 Tugas Akhir</option></select></div>
+      </div>
+      <div class="f" id="s2Ang" style="display:none"><label>Anggota kelompok</label><input id="fAng" placeholder="pisahkan dengan koma"></div>
+      <div class="f" id="s2Luar" style="display:none"><label>Luaran / jenis tugas yang harus dibuat</label><input id="fLuar" placeholder="mis. Makalah, PPT, Presentasi"></div>
+      <div class="row">
+        <div class="f"><label id="dateLbl">Tanggal</label><input type="date" id="fDate" required></div>
+        <div class="f"><label id="startLbl">Mulai</label><input type="time" id="fStart"></div>
+      </div>
+      <div class="row" id="endRow">
+        <div class="f"><label>Selesai</label><input type="time" id="fEnd"></div>
+        <div class="f"><label>Ulangi</label>
+          <select id="fRepeat"><option value="none">Tidak berulang</option><option value="weekly">Setiap minggu</option><option value="daily">Setiap hari</option></select></div>
+      </div>
+      <div id="repeatBox" style="display:none">
+        <div class="f"><label>Hari</label><div class="days" id="fDays"></div></div>
+        <div class="f"><label>Berulang sampai (opsional)</label><input type="date" id="fUntil"></div>
+      </div>
+      <div class="f"><label>Ingatkan</label>
+        <select id="fRemind">
+          <option value="0">Tanpa pengingat</option><option value="15">15 menit sebelum</option><option value="30">30 menit sebelum</option>
+          <option value="60" selected>1 jam sebelum</option><option value="180">3 jam sebelum</option><option value="1440">1 hari sebelum</option>
+          <option value="4320">3 hari sebelum</option><option value="10080">1 minggu sebelum</option>
+        </select></div>
+      <div class="f"><label>Catatan</label><textarea id="fNotes" rows="2" placeholder="Tempat, link, bahan yang dibawa…"></textarea></div>
+      <div class="actions">
+        <button type="button" class="tb" id="delBtn" style="visibility:hidden;color:#a3281d">Hapus</button>
+        <div style="display:flex;gap:8px"><button type="button" class="tb" id="cancelBtn">Batal</button><button type="submit" class="tb primary">Simpan</button></div>
+      </div>
+    </form>
+  </div>
+</div>
+<div class="modal-bg" id="pdfBg"><div class="modal" style="max-width:780px">
+  <h2>Sisipkan PDF</h2><div id="pdfInfo" style="font-size:14px;color:var(--muted);margin-bottom:8px"></div>
+  <div class="pdfgrid" id="pdfGrid"></div>
+  <div class="actions" style="flex-wrap:wrap"><button type="button" class="tb" id="pdfAll">Pilih semua</button>
+   <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="tb" id="pdfCancel">Batal</button><button type="button" class="tb" id="pdfHere">Tempel di halaman ini</button><button type="button" class="tb primary" id="pdfNew">Jadikan halaman Catatan baru</button></div></div>
+</div></div>
+<div class="modal-bg" id="addPageBg"><div class="modal" style="max-width:480px">
+  <h2>Tambah halaman</h2><div id="apTab" style="font-size:14px;color:var(--muted);margin-top:-6px"></div>
+  <div class="choice" id="apChoice"></div>
+  <div class="f"><label>Judul halaman (opsional)</label><input id="apTitle" placeholder="mis. Rapat MGMP, Catatan Bimbingan, Program Latihan"></div>
+  <div class="actions"><span></span><div style="display:flex;gap:8px"><button type="button" class="tb" id="apCancel">Batal</button><button type="button" class="tb primary" id="apOk">Tambah</button></div></div>
+</div></div>
+<div class="modal-bg" id="detBg"><div class="modal" style="max-width:480px"><div id="detBody"></div>
+  <div class="actions" style="flex-wrap:wrap"><button type="button" class="tb" id="detDay">📅 Buka harinya</button><div style="display:flex;gap:8px"><button type="button" class="tb" id="detClose">Tutup</button><button type="button" class="tb" id="detDel" style="color:#a3281d">🗑️ Hapus</button><button type="button" class="tb primary" id="detEdit">✏️ Ubah</button></div></div>
+</div></div>
+<div class="toast" id="toast"></div>
+
+<script>window.PDV_V=30</script>
+<script src="js/store.js?v=30"></script>
+</body>
+</html>
