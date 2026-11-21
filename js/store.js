@@ -93,7 +93,15 @@ const assetsApi={
   url:id=>URLS[id]||null};
 
 /* ---------------- unduhan ---------------- */
+function saveBlob(blob,name){const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name||"unduhan";document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},4000)}
+function printPdf(blob){const u=URL.createObjectURL(blob);const mob=/Android|iPhone|iPad/i.test(navigator.userAgent);
+  if(mob){window.open(u,"_blank");return}
+  let f=document.getElementById("pdvPrintFrame");if(f)f.remove();f=document.createElement("iframe");f.id="pdvPrintFrame";f.style.cssText="position:fixed;right:0;bottom:0;width:1px;height:1px;border:0;opacity:0";
+  f.onload=()=>setTimeout(()=>{try{f.contentWindow.focus();f.contentWindow.print()}catch(e){window.open(u,"_blank")}},300);f.src=u;document.body.appendChild(f)}
+function askPdf(blob,name){return new Promise(res=>{const w=el(`<div style="position:fixed;inset:0;z-index:100001;background:rgba(36,57,95,.35);display:flex;align-items:center;justify-content:center;font-family:Nunito,system-ui,sans-serif"><div style="background:#fffdf8;border-radius:18px;padding:20px;width:min(360px,92vw);box-shadow:0 10px 40px rgba(0,0,0,.25);color:#24395f;text-align:center"><div style="font-weight:800;font-size:16px;margin-bottom:4px">Dokumen siap</div><div style="font-size:12.5px;color:#4a5a75;word-break:break-all">${esc(name)}</div><button class="pdvB" data-k="p">🖨️ Cetak sekarang</button><button class="pdvB l" data-k="s">💾 Simpan PDF</button><button class="pdvB l" data-k="b">Cetak &amp; simpan</button><button class="pdvB l" data-k="x" style="border:none">Batal</button></div></div>`);
+  w.addEventListener("click",e=>{const k=e.target.dataset&&e.target.dataset.k;if(!k&&e.target!==w)return;w.remove();if(k==="p"||k==="b")printPdf(blob);if(k==="s"||k==="b")saveBlob(blob,name);res(true)});document.body.appendChild(w)})}
 const dlApi={save:async o=>{let d=o.data;let blob=d instanceof Blob?d:new Blob([d],{type:o.mimeType||o.type||(/\.json$/i.test(o.filename)?"application/json":/\.pdf$/i.test(o.filename)?"application/pdf":"application/octet-stream")});
+  if(/\.pdf$/i.test(o.filename||"")&&!o.noPrompt){if(blob.type!=="application/pdf")blob=new Blob([blob],{type:"application/pdf"});return askPdf(blob,o.filename)}
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=o.filename||"unduhan";document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},4000);return true}};
 const userApi={can:async()=>true,id:async()=>"devy",name:async()=>"Devy Sylvya",me:async()=>({id:"devy",name:"Devy Sylvya"})};
 
