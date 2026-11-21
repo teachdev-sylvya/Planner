@@ -107,12 +107,14 @@ const DIRTY=new Set(); let pushT=null,syncing=false,syncAgain=false,lastErr="";
 async function saveCfg(){await kvSet("cfg",CFG)}
 function changed(col){DIRTY.add(col);scheduleSave();schedulePush()}
 function schedulePush(ms){if(!CFG.token)return;clearTimeout(pushT);pushT=setTimeout(()=>sync(),ms==null?8000:ms);status()}
-async function gh(path,opt){const r=await fetch("https://api.github.com"+path,Object.assign({},opt,{headers:Object.assign({"Accept":"application/vnd.github+json","Authorization":"Bearer "+CFG.token},opt&&opt.body?{"Content-Type":"application/json"}:{})}));
+function tfetch(u,o,ms){const ac=new AbortController();const t=setTimeout(()=>ac.abort(),ms||120000);return fetch(u,Object.assign({},o,{signal:ac.signal})).catch(e=>{throw new Error(e&&e.name==="AbortError"?"Koneksi ke GitHub terlalu lama (timeout)":"Tidak tersambung ke internet / GitHub")}).finally(()=>clearTimeout(t))}
+const LOG=[];function log(m){LOG.push(new Date().toLocaleTimeString("id-ID")+" "+m);if(LOG.length>40)LOG.shift()}
+async function gh(path,opt){const r=await tfetch("https://api.github.com"+path,Object.assign({},opt,{headers:Object.assign({"Accept":"application/vnd.github+json","Authorization":"Bearer "+CFG.token},opt&&opt.body?{"Content-Type":"application/json"}:{})}),opt&&opt.body&&opt.body.length>500000?240000:120000);
   if(!r.ok){const t=await r.text().catch(()=>"");const e=new Error(r.status===401?"Token GitHub tidak valid / kedaluwarsa":r.status===404?"Gist tidak ditemukan":"GitHub "+r.status+" "+t.slice(0,120));e.status=r.status;throw e}return r.status===204?null:r.json()}
 async function findGist(){let page=1;while(page<6){const l=await gh("/gists?per_page=100&page="+page);if(!l.length)break;const g=l.find(x=>x.description===GIST_DESC||(x.files&&x.files[META_FILE]));if(g)return g.id;page++}return null}
 async function gistFile(g,name){const f=g.files&&g.files[name];
   if(!f){const sha=g.history&&g.history[0]&&g.history[0].version;const own=(g.owner&&g.owner.login)||CFG.login;if(!sha||!own)return null;
-    try{const r=await fetch("https://gist.githubusercontent.com/"+own+"/"+g.id+"/raw/"+sha+"/"+encodeURIComponent(name));return r.ok?r.text():null}catch(e){return null}}if(!f.truncated&&f.content!=null)return f.content;const r=await fetch(f.raw_url);if(!r.ok)throw new Error("Gagal mengambil "+name);return r.text()}
+    try{const r=await tfetch("https://gist.githubusercontent.com/"+own+"/"+g.id+"/raw/"+sha+"/"+encodeURIComponent(name),{},180000);return r.ok?r.text():null}catch(e){return null}}if(!f.truncated&&f.content!=null)return f.content;const r=await tfetch(f.raw_url,{},180000);if(!r.ok)throw new Error("Gagal mengambil "+name);return r.text()}
 const colFiles=(name,n)=>Array.from({length:n},(_,k)=>"c~"+name.replace(/[^A-Za-z0-9_-]/g,"_")+"~"+k+".txt");
 const astFiles=(id,n)=>Array.from({length:n},(_,k)=>"a~"+id+"~"+k+".txt");
 function splitStr(s){const out=[];for(let i=0;i<s.length;i+=CHUNK)out.push(s.slice(i,i+CHUNK));return out.length?out:[""]}
@@ -120,22 +122,25 @@ function colGroup(c){return c.startsWith("~")?c:c} // nama koleksi = nama grup
 function docsOfCol(c){const o={};const pre=c+"/";for(const p in DOCS)if(p.startsWith(pre))o[p]=[DOCS[p].t,DOCS[p].d];return o}
 async function remoteMeta(g){const t=await gistFile(g,META_FILE);return t?JSON.parse(t):null}
 
-async function sync(){
-  if(!CFG.token||!DK)return;if(syncing){syncAgain=true;return}syncing=true;clearTimeout(pushT);status("🔄 Menyinkronkan…");
-  try{do{syncAgain=false;await syncOnce()}while(syncAgain);lastErr="";CFG.lastOk=Date.now();await saveCfg();status()}
-  catch(e){console.warn("sinkron",e);lastErr=String(e&&e.message||e);status("⚠️ "+lastErr)}
-  syncing=false}
+let syncStart=0,syncGen=0;
+async function sync(force){
+  if(!CFG.token||!DK)return;
+  if(syncing){if(!force&&Date.now()-syncStart<8*60000){syncAgain=true;return}log("sinkron sebelumnya macet, diulang");}
+  const gen=++syncGen;syncing=true;syncStart=Date.now();clearTimeout(pushT);status("🔄 Menyinkronkan…");log("mulai sinkron");
+  try{let n=0;do{syncAgain=false;await syncOnce();n++}while(syncAgain&&n<2&&gen===syncGen);if(gen!==syncGen)return;lastErr="";CFG.lastOk=Date.now();await saveCfg();log("selesai");stMsg="";status()}
+  catch(e){if(gen!==syncGen)return;console.warn("sinkron",e);lastErr=String(e&&e.message||e);log("gagal: "+lastErr);status("⚠️ "+lastErr)}
+  finally{if(gen===syncGen){syncing=false;status();if(syncAgain&&DIRTY.size)schedulePush(5000)}}}
 async function syncOnce(){
   if(!CFG.login){const u=await gh("/user");CFG.login=u.login;await saveCfg()}
   if(!CFG.gistId){CFG.gistId=await findGist();await saveCfg()}
   let g=null,rm=null;
-  if(CFG.gistId){g=await gh("/gists/"+CFG.gistId);rm=await remoteMeta(g)}
+  if(CFG.gistId){status("⬇️ Memeriksa data di GitHub…");g=await gh("/gists/"+CFG.gistId);rm=await remoteMeta(g)}
   if(rm&&rm.app===APPNAME){
     if(rm.wdk!==META.wdk)throw new Error("Data di GitHub memakai kata sandi lain. Buka Pengaturan sinkron → sambungkan ulang.");
     /* tarik koleksi yang lebih baru di GitHub */
     let got=0;
     for(const name in (rm.cols||{})){const rc=rm.cols[name];if((CFG.cols||{})[name]===rc.t)continue;
-      const parts=[];let miss=false;for(const f of colFiles(name,rc.n)){const s=await gistFile(g,f);if(s==null){miss=true;break}parts.push(s)}
+      status("⬇️ Mengambil "+name+"…");log("ambil "+name);const parts=[];let miss=false;for(const f of colFiles(name,rc.n)){const s=await gistFile(g,f);if(s==null){miss=true;break}parts.push(s)}
       let obj=null;if(!miss){try{obj=await unpack(b64d(parts.join("")))}catch(e){miss=true}}
       if(miss){console.warn("bagian data belum lengkap di GitHub:",name);DIRTY.add(name);continue}
       if(name==="~aset"){for(const id in obj){const r=obj[id],l=ASSETS[id];if(!l||r.t>l.t){ASSETS[id]=r;if(r.del){await kvDel(id,"aset");delete URLS[id]}}}}
@@ -152,7 +157,7 @@ async function syncOnce(){
   const allCols=new Set(Object.keys(DOCS).map(colOf));allCols.add("~aset");
   for(const name of allCols){
     const need=DIRTY.has(name)||!meta.cols[name]||!(CFG.cols&&CFG.cols[name]);if(!need)continue;
-    let obj;if(name==="~aset")obj=ASSETS;else{obj=docsOfCol(name);
+    status("🔐 Menyiapkan "+name+"…");let obj;if(name==="~aset")obj=ASSETS;else{obj=docsOfCol(name);
       /* gabung dengan versi GitHub yang sudah ditarik: ambil yang terbaru per dokumen (sudah di DOCS) */}
     const s=b64e(await pack(obj));const parts=splitStr(s);const old=meta.cols[name]?meta.cols[name].n:0;
     colFiles(name,parts.length).forEach((f,k)=>files[f]={content:parts[k]});for(let k=parts.length;k<old;k++)files[colFiles(name,old)[k]]=null;
@@ -164,12 +169,12 @@ async function syncOnce(){
     if(meta.assets[id]||a.size>ASSET_SYNC_MAX)continue;const e=await kvGet(id,"aset");if(!e)continue;astUploads.push([id,e])}
   if(any||astUploads.length||!rm){
     if(any||!rm){const ks=Object.keys(files);let grp={},sz=0,done=0;
-      for(const k of ks){const v=files[k];const n=v?v.content.length:0;if(sz&&sz+n>MAXREQ){status("⬆️ Mengirim data "+Math.round(done/ks.length*100)+"%…");await writeGist(grp);grp={};sz=0}grp[k]=v;sz+=n;done++}
+      for(const k of ks){const v=files[k];const n=v?v.content.length:0;if(sz&&sz+n>MAXREQ){status("⬆️ Mengirim data "+Math.round(done/ks.length*100)+"%…");log("kirim data "+Math.round(done/ks.length*100)+"%");await writeGist(grp);grp={};sz=0}grp[k]=v;sz+=n;done++}
       meta.t=Date.now();grp[META_FILE]={content:JSON.stringify(meta)};await writeGist(grp)}
     /* aset dikirim satu per satu supaya permintaan tidak terlalu besar */
     /* tiap file disimpan di gist tersendiri supaya sinkron data harian tetap ringan */
     let ui=0;for(const [id,e] of astUploads){ui++;const parts=splitStr(b64e(e));const names=astFiles(id,parts.length);let gid=null;
-      for(let k=0;k<parts.length;k+=BATCH){status("⬆️ Mengirim file "+ui+"/"+astUploads.length+(parts.length>BATCH?" ("+Math.round(k/parts.length*100)+"%)":"")+"…");
+      for(let k=0;k<parts.length;k+=BATCH){log("kirim file "+ui+"/"+astUploads.length+" bagian "+(k/BATCH+1));status("⬆️ Mengirim file "+ui+"/"+astUploads.length+(parts.length>BATCH?" ("+Math.round(k/parts.length*100)+"%)":"")+"…");
         const f={};for(let m=k;m<Math.min(k+BATCH,parts.length);m++)f[names[m]]={content:parts[m]};
         if(!gid){const r=await gh("/gists",{method:"POST",body:JSON.stringify({description:ASSET_DESC+id.slice(0,8),public:false,files:f})});gid=r.id}
         else await gh("/gists/"+gid,{method:"PATCH",body:JSON.stringify({files:f})})}
@@ -208,7 +213,7 @@ body.appmode #pdvCloud{bottom:auto;top:10px;left:auto;right:10px;opacity:.85}
 function el(h){const d=document.createElement("div");d.innerHTML=h.trim();return d.firstChild}
 let stMsg="";
 function status(m){if(m!=null)stMsg=m;const b=$("#pdvCloud");if(!b)return;let t;
-  if(syncing)t=stMsg&&stMsg.startsWith("⬆️")?stMsg:"🔄 Menyinkronkan…";else if(stMsg&&stMsg.startsWith("⚠️"))t=stMsg;else if(!CFG.token)t="🔒 Tersimpan di perangkat · sinkron belum aktif";
+  if(syncing)t=stMsg&&/^(⬆️|⬇️|🔐)/.test(stMsg)?stMsg:"🔄 Menyinkronkan…";else if(stMsg&&stMsg.startsWith("⚠️"))t=stMsg;else if(!CFG.token)t="🔒 Tersimpan di perangkat · sinkron belum aktif";
   else if(pushT||DIRTY.size)t="⏳ Menunggu sinkron…";else t="☁ Tersinkron"+(CFG.lastOk?" "+new Date(CFG.lastOk).toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"}):"");
   b.textContent=t}
 function lockUI(mode,msg){
@@ -264,7 +269,7 @@ function openPanel(){let p=$("#pdvPanel");if(!p){p=el('<div id="pdvPanel"></div>
   p.innerHTML=`<div class="bx"><button class="x" id="cx">✕</button><h2>☁ Sinkron & keamanan</h2>
   <div class="st">${esc($("#pdvCloud").textContent)}<br>${nDocs} data · ${nAst} file · terenkripsi AES-256${lastErr?'<br><b style="color:#b42318">'+esc(lastErr)+'</b>':""}</div>
   <h3>Sinkron antar-perangkat (GitHub)</h3>
-  ${CFG.token?`<p>Tersambung sebagai <b>${esc(CFG.login||"?")}</b>${CFG.gistId?` · gist <code>${esc(CFG.gistId.slice(0,8))}…</code>`:""}</p><button class="pdvB" id="sNow">Sinkron sekarang</button><button class="pdvB l" id="sOff">Putuskan sinkron di perangkat ini</button>`
+  ${CFG.token?`<p>Tersambung sebagai <b>${esc(CFG.login||"?")}</b>${CFG.gistId?` · gist <code>${esc(CFG.gistId.slice(0,8))}…</code>`:""}</p><button class="pdvB" id="sNow">Sinkron sekarang</button><details style="margin-top:8px"><summary style="cursor:pointer;font-size:13px">Catatan proses sinkron</summary><pre style="white-space:pre-wrap;font-size:11.5px;background:#f4f6fa;padding:8px;border-radius:8px;max-height:180px;overflow:auto">${esc(LOG.slice(-15).join("\n")||"-")}</pre></details><button class="pdvB l" id="sOff">Putuskan sinkron di perangkat ini</button>`
   :`<p>Isi token GitHub (izin <b>gist</b>) supaya data tersimpan aman di akun GitHub dan sama di HP, tablet, dan laptop. Boleh pakai token yang sama dengan Jejak Hijrah Dev kalau izinnya sudah mencakup gist.</p><input type="password" id="tk" placeholder="Token GitHub"><button class="pdvB" id="sOn">Aktifkan sinkron</button>`}
   <h3>Pindahkan data dari aplikasi Claude</h3>
   <p>Pilih file <b>pindah-planner…</b>, <b>pindah-wakasek…</b>, dan <b>pindah-teacher…</b> (boleh sekaligus, termasuk file besar <b>…-file1…</b> dst.).</p>
@@ -274,7 +279,7 @@ function openPanel(){let p=$("#pdvPanel");if(!p){p=el('<div id="pdvPanel"></div>
   <button class="pdvB r" id="lock" style="margin-top:16px">🔒 Kunci sekarang (lupakan di perangkat ini)</button></div>`;
   p.style.display="flex";const on=(id,f)=>{const x=p.querySelector("#"+id);if(x)x.onclick=f};
   on("cx",()=>p.style.display="none");
-  on("sNow",()=>{sync().then(openPanel)});
+  on("sNow",()=>{sync(true).then(openPanel);setTimeout(openPanel,300)});
   on("sOff",async()=>{if(!confirm("Putuskan sinkron di perangkat ini? Data di perangkat dan di GitHub tetap ada."))return;CFG={};await saveCfg();status();openPanel()});
   on("sOn",async()=>{const tk=p.querySelector("#tk").value.trim();if(!tk)return;CFG={token:tk,cols:{}};try{status("🔄 Menghubungi GitHub…");const u=await gh("/user");CFG.login=u.login;const id=await findGist();
       if(id){const g=await gh("/gists/"+id);const rm=await remoteMeta(g);if(rm&&rm.wdk!==META.wdk){alert("Di akun GitHub ini sudah ada data planner dengan kata sandi lain. Untuk memakai data itu: Kunci sekarang → Sambungkan ke data yang sudah ada.");CFG={};await saveCfg();openPanel();return}CFG.gistId=id}
