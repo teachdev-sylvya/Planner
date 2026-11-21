@@ -130,7 +130,7 @@ async function sync(force){
   try{let n=0;do{syncAgain=false;await syncOnce();n++}while(syncAgain&&n<2&&gen===syncGen);if(gen!==syncGen)return;lastErr="";CFG.lastOk=Date.now();await saveCfg();log("selesai");stMsg="";status()}
   catch(e){if(gen!==syncGen)return;console.warn("sinkron",e);lastErr=String(e&&e.message||e);log("gagal: "+lastErr);status("⚠️ "+lastErr)}
   finally{if(gen===syncGen){syncing=false;status();if(syncAgain&&DIRTY.size)schedulePush(5000)}}}
-async function syncOnce(){
+async function syncOnce(opt){opt=opt||{};
   if(!CFG.login){const u=await gh("/user");CFG.login=u.login;await saveCfg()}
   if(!CFG.gistId){CFG.gistId=await findGist();await saveCfg()}
   let g=null,rm=null;
@@ -147,7 +147,7 @@ async function syncOnce(){
       else for(const p in obj){const [t,d]=obj[p];const l=DOCS[p];if(!l||t>l.t){DOCS[p]={t,d};touch(p);got++}}
       CFG.cols=CFG.cols||{};CFG.cols[name]=rc.t}
     /* ambil file yang belum ada di perangkat ini */
-    for(const id in (rm.assets||{})){if(ASSETS[id]&&ASSETS[id].del)continue;if(await kvGet(id,"aset"))continue;const ra=rm.assets[id];
+    if(!opt.noAssets)for(const id in (rm.assets||{})){if(ASSETS[id]&&ASSETS[id].del)continue;status("⬇️ Mengunduh file…");if(await kvGet(id,"aset"))continue;const ra=rm.assets[id];
       try{const ag=ra.g?await gh("/gists/"+ra.g):g;const parts=[];for(const f of astFiles(id,ra.n)){const x=await gistFile(ag,f);if(x==null)throw new Error("potongan file hilang");parts.push(x)}const e=b64d(parts.join(""));await kvSet(id,e,"aset");if(!ASSETS[id])ASSETS[id]={type:ra.type,size:ra.size,t:ra.t||1};await loadAssetURL(id)}catch(e){console.warn("aset",id,e)}}
     if(got){scheduleSave();status("⬇️ "+got+" perubahan dari perangkat lain")}
   }
@@ -212,7 +212,7 @@ body.appmode #pdvCloud{bottom:auto;top:10px;left:auto;right:10px;opacity:.85}
 `;
 function el(h){const d=document.createElement("div");d.innerHTML=h.trim();return d.firstChild}
 let stMsg="";
-function status(m){if(m!=null)stMsg=m;const b=$("#pdvCloud");if(!b)return;let t;
+function status(m){if(m!=null)stMsg=m;const lk=document.querySelector("#pdvLock .bx p.busy");if(lk&&m)lk.textContent=m;const b=$("#pdvCloud");if(!b)return;let t;
   if(syncing)t=stMsg&&/^(⬆️|⬇️|🔐)/.test(stMsg)?stMsg:"🔄 Menyinkronkan…";else if(stMsg&&stMsg.startsWith("⚠️"))t=stMsg;else if(!CFG.token)t="🔒 Tersimpan di perangkat · sinkron belum aktif";
   else if(pushT||DIRTY.size)t="⏳ Menunggu sinkron…";else t="☁ Tersinkron"+(CFG.lastOk?" "+new Date(CFG.lastOk).toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"}):"");
   b.textContent=t}
@@ -223,7 +223,7 @@ function lockUI(mode,msg){
   else if(mode==="new")w.innerHTML=`<div class="bx">${head}<p>Selamat datang! Pilih cara memulai:</p><button class="pdvB" id="mNew">Mulai baru di perangkat ini</button><button class="pdvB l" id="mJoin">Sambungkan ke data yang sudah ada (dari HP/laptop lain)</button><p style="margin-top:12px;font-size:12.5px">Semua data dienkripsi dengan kata sandi Ibu. Tanpa kata sandi, isinya tidak bisa dibaca siapa pun.</p></div>`;
   else if(mode==="create")w.innerHTML=`<div class="bx">${head}<p><b>Buat kata sandi</b><br>Kata sandi ini dipakai untuk membuka planner di semua perangkat. <b>Simpan baik-baik</b>: kalau lupa, data tidak bisa dibuka.</p><input id="pw1" type="password" autocomplete="new-password" placeholder="Kata sandi (min. 8 karakter)"><input id="pw2" type="password" autocomplete="new-password" placeholder="Ulangi kata sandi"><label class="row"><input id="rem" type="checkbox" checked> Ingat di perangkat ini</label><div class="err">${esc(msg||"")}</div><button class="pdvB" id="go">Simpan & buka planner</button><button class="pdvB l" id="back">Kembali</button></div>`;
   else if(mode==="join")w.innerHTML=`<div class="bx">${head}<p><b>Sambungkan ke data yang sudah ada</b><br>Isi token GitHub (yang sama dengan di perangkat lain) dan kata sandi planner.</p><input id="tk" type="password" placeholder="Token GitHub (ghp_… / github_pat_…)"><input id="pw" type="password" placeholder="Kata sandi planner"><label class="row"><input id="rem" type="checkbox" checked> Ingat di perangkat ini</label><div class="err">${esc(msg||"")}</div><button class="pdvB" id="go">Sambungkan</button><button class="pdvB l" id="back">Kembali</button></div>`;
-  else if(mode==="busy")w.innerHTML=`<div class="bx">${head}<p>${esc(msg||"Membuka…")}</p></div>`;
+  else if(mode==="busy")w.innerHTML=`<div class="bx">${head}<p class="busy">${esc(msg||"Membuka…")}</p><p style="font-size:12px">Jangan tutup halaman ini.</p></div>`;
   else if(mode==="forgot")w.innerHTML=`<div class="bx">${head}<p><b>Lupa kata sandi</b><br>Karena data dienkripsi, kata sandi tidak bisa dipulihkan. Pilihan yang ada:</p><p style="text-align:left">• Coba lagi kata sandi lain yang mungkin dipakai.<br>• Kalau di perangkat lain planner masih terbuka (tersimpan "ingat di perangkat ini"), buka di sana lalu ganti kata sandi.<br>• Atau hapus data di perangkat ini dan mulai dari awal (data di GitHub tidak ikut terhapus).</p><button class="pdvB l" id="back">Kembali</button><button class="pdvB r" id="wipe">Hapus data di perangkat ini</button></div>`;
   const on=(id,f)=>{const x=w.querySelector("#"+id);if(x)x.onclick=f};
   w.querySelectorAll("input").forEach(i=>i.addEventListener("keydown",e=>{if(e.key==="Enter"){const g=w.querySelector("#go");g&&g.click()}}));
@@ -247,7 +247,7 @@ async function loadLocal(){const s=await kvGet("snap");if(s){try{loadSnap(await 
 async function joinExisting(token,pw,remember){CFG={token};const u=await gh("/user");CFG.login=u.login;const id=await findGist();if(!id)throw new Error("Belum ada data planner di akun GitHub ini. Pilih \"Mulai baru\" di perangkat yang datanya paling lengkap.");
   CFG.gistId=id;const g=await gh("/gists/"+id);const rm=await remoteMeta(g);if(!rm||rm.app!==APPNAME)throw new Error("Gist planner tidak valid.");
   const raw=await unwrap(pw,rm);META={salt:rm.salt,iter:rm.iter,wdk:rm.wdk};await kvSet("meta",META);await setDK(raw,remember);DOCS={};ASSETS={};CFG.cols={};await saveCfg();
-  lockUI("busy","Mengunduh data dari GitHub…");await syncOnce();await saveLocal()}
+  lockUI("busy","Mengunduh data dari GitHub…");await syncOnce({noAssets:true});await saveLocal()}
 
 /* ---------------- setelah terbuka ---------------- */
 async function afterUnlock(){
