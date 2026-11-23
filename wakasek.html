@@ -279,7 +279,7 @@ const MAPEL_STD=[
 ];
 
 /* ============================ STORE ============================ */
-const COLS=['siswa','guru','tendik','tu','rapor','kelas','mapel','tugas','jadwal','nilai','supervisi','perangkat','agenda','kokurikuler','proker','pengganti','tt','pk','ujian','jadwalVersi','surat'];
+const COLS=['siswa','guru','tendik','tu','rapor','kelas','mapel','tugas','jadwal','nilai','supervisi','perangkat','agenda','kokurikuler','proker','pengganti','tt','pk','ujian','jadwalVersi','surat','sk'];
 const S={data:{},cfg:JSON.parse(JSON.stringify(DEF_CFG)),mode:'local',db:null,dl:null,readOnly:false,loaded:new Set()};
 COLS.forEach(c=>S.data[c]={});
 const LSKEY='wakasek-kurikulum-v1';
@@ -1983,7 +1983,7 @@ const DOC_CSS=`.paper{background:#fff;width:794px;min-height:1080px;margin:0 aut
 .paper th,.paper td{border:1px solid #000;padding:3px 5px;color:#000;background:transparent;position:static;vertical-align:middle!important;font-size:12px;text-align:left}
 .paper.land{width:1123px;min-height:760px}
 .paper th{text-align:center;font-weight:700;background:#e9eef5}.paper tr:hover td{background:transparent}
-.paper table.nb td,.paper table.nb th{border:none;padding:1px 3px}
+.paper table.nb td,.paper table.nb th{border:none;padding:1px 3px}.paper table.skt td{vertical-align:top!important;padding:1px 3px}.paper table.sks td,.paper table.sks th{font-size:11.5px;padding:2px 4px;line-height:1.2}.paper table.skg td,.paper table.skg th{font-size:10.5px;padding:2px 3px;line-height:1.2;vertical-align:top!important}
 .paper .ttl{text-align:center;font-weight:700;font-size:14px;margin:0}.paper .c{text-align:center}.paper .r{text-align:right}
 .paper .ttd{display:flex;justify-content:flex-end;margin-top:18px}.paper .ttd2{display:flex;justify-content:space-between;margin-top:18px}.ttd2>div:first-child .ttdbox{margin-left:44px}.ttd2>div:first-child .ttdbox.gab{margin-left:70px}
 .paper .kop{text-align:center;border-bottom:3px double #000;padding-bottom:6px;margin-bottom:10px}
@@ -2434,7 +2434,7 @@ function simpanKop(){if(S.mode!=='db'){try{S.kop?localStorage.setItem(LSKEY+'-ko
 function dump(){return JSON.stringify({versi:1,dibuat:new Date().toISOString(),cfg:S.cfg,data:S.data})}
 
 /* ===== keterangan cadangan & pulihkan ===== */
-const RK_NM={siswa:'siswa',guru:'guru',tendik:'tendik',tu:'TU',kelas:'kelas',mapel:'mapel',jadwal:'jadwal',nilai:'nilai',tugas:'pembagian tugas',agenda:'agenda',supervisi:'supervisi',perangkat:'perangkat',rapor:'rapor',surat:'surat',ujian:'ujian',proker:'proker',kokurikuler:'kokurikuler',pengganti:'guru pengganti',tt:'tugas tambahan',pk:'penilaian kinerja',jadwalVersi:'versi jadwal'};
+const RK_NM={siswa:'siswa',guru:'guru',tendik:'tendik',tu:'TU',kelas:'kelas',mapel:'mapel',jadwal:'jadwal',nilai:'nilai',tugas:'pembagian tugas',agenda:'agenda',supervisi:'supervisi',perangkat:'perangkat',rapor:'rapor',surat:'surat',ujian:'ujian',proker:'proker',kokurikuler:'kokurikuler',pengganti:'guru pengganti',tt:'tugas tambahan',pk:'penilaian kinerja',jadwalVersi:'versi jadwal',sk:'SK tim'};
 function rkRingkas(data){const parts=[];let tot=0;for(const c of Object.keys(data||{})){const n=Object.keys(data[c]||{}).length;if(!n)continue;tot+=n;parts.push('<b>'+n.toLocaleString('id-ID')+'</b> '+(RK_NM[c]||c))}return{tot,html:parts.length?parts.join(' · '):'(belum ada data)'}}
 function infoBox(judul,isi,warna){openModal('<h2 style="color:'+(warna||'var(--ink)')+'">'+judul+'</h2><div style="line-height:1.6">'+isi+'</div><div class="mfoot"><button class="btn p" onclick="closeModal()">Oke, mengerti</button></div>')}
 function backup(){const fn='cadangan-wakasek-'+today()+'.json',r=rkRingkas(S.data);S.dl.save({filename:fn,data:dump()}).then(()=>infoBox('✅ Cadangan berhasil diunduh','File <b>'+fn+'</b> sudah tersimpan di folder <b>Unduhan / Download</b> perangkat ini.<br><br>Isinya: '+r.html+'.<br><br>Langkah berikutnya: buka aplikasi tujuan → <b>Pengaturan → Pulihkan dari file</b> → pilih file ini.','#1f7a4d')).catch(e=>infoBox('⚠️ Cadangan belum terunduh',(e&&e.code==='declined')?'Unduhan dibatalkan. Ketuk <b>Unduh cadangan</b> lagi lalu pilih <b>Simpan</b>.':'Unduhan gagal ('+esc(String(e&&e.code||e))+'). Coba lagi, atau pakai tombol <b>Salin cadangan</b>.','#b45309'))}
@@ -2736,6 +2736,406 @@ function suArsip(){const q=(UI.suQ||'').toLowerCase();const L=suAll().filter(d=>
 function vSurat(){if(!guruList().length)return '<div class="card empty">Tambahkan data <a href="#guru">Guru</a> dulu.</div>';const tab=UI.tab.surat||(UI.suId?'buat':'arsip');
   return `<div class="tabs">${[['buat','✎ Buat / Format Surat'],['arsip','🗂 Arsip Surat Tugas']].map(([k,l])=>`<a class="${tab===k?'on':''}" onclick="UI.tab.surat='${k}';render()">${l}</a>`).join('')}</div>`+(tab==='buat'?suBuat():suArsip())}
 
+/* ============================ SK TIM & KEPANITIAAN ============================ */
+/* Satu catatan SK = satu dokumen lengkap: isi SK, Lampiran I (susunan), Lampiran II (uraian tugas), lampiran tambahan. */
+const SK_ORD=['KESATU','KEDUA','KETIGA','KEEMPAT','KELIMA','KEENAM','KETUJUH','KEDELAPAN','KESEMBILAN','KESEPULUH','KESEBELAS','KEDUA BELAS'];
+const SK_ROM=['I','II','III','IV','V','VI','VII','VIII','IX','X'];
+const SK_MP={IPA:'IPA',IPS:'IPS',BIN:'Bahasa Indonesia',BIG:'Bahasa Inggris',MTK:'Matematika',PP:'Pendidikan Pancasila',PAI:'PAI',PJOK:'PJOK',INF:'TIK',TIK:'TIK',SENI:'Seni Budaya',SB:'Seni Budaya',KKA:'KKA',BK:'BK',KAT:'Agama Katolik',KRI:'Agama Kristen',HIN:'Agama Hindu'};
+const SK_DEF={nama:'',judul:'',nomor:'',tgl:'',tempat:'Tangerang',penetap:'KEPALA SMP NEGERI 5 TANGERANG',pembuka:'KEPALA SMP NEGERI 5 TANGERANG,',
+  ttdJab:'Kepala SMP Negeri 5 Tangerang,',ttdNama:'',ttdNip:'',lampKet:'Keputusan Kepala SMP Negeri 5 Tangerang',
+  menimbang:'',mengingat:'',memperhatikan:'',diktum:'',tembusan:'',kolDinas:'Jabatan Dinas',kolPeran:'Jabatan dalam Tim',
+  judulLamp1:'',judulLamp2:'',anggota:[],tugas:[],lampLain:[],kategori:'POKJA'};
+const skAll=()=>all('sk').sort((a,b)=>String(b.tgl||'').localeCompare(String(a.tgl||''))||(b.dibuat||0)-(a.dibuat||0));
+const skCur=()=>get('sk',UI.skId);
+const skV=d=>Object.assign({},SK_DEF,d||{});
+const skNip=s=>String(s||'').replace(/\D/g,'');
+const skTgl=d=>d?tglL(d):'……';
+function skCariNip(nip){const n=skNip(nip);if(!n)return null;return [...guruList(),...all('tendik')].find(g=>skNip(g.nip)===n)||null}
+function skDinasDefault(g){if(!g)return '';if(get('tendik',g.id))return g.jabatan||'Tenaga Kependidikan';if(isKepsek&&isKepsek(g))return 'Kepala Sekolah';
+  const k=String(g.mapelUtama||'').replace(/^m_/,'');const m=get('mapel',g.mapelUtama);return 'Guru '+(SK_MP[k]||(m&&m.kode==='INF'?'TIK':m?.nama)||'')}
+/* data tampil satu anggota: dari DUK bila terhubung, isian manual menimpa */
+function skOrang(a){const g=a.gid?orang(a.gid):null;return {nama:a.nama||g?.nama||'……',nip:a.nip!=null&&a.nip!==''?a.nip:(g?.nip||''),
+  gol:a.gol||(g?(g.pangkat||golTxt(g)):'')||'–',dinas:a.dinas!=null&&a.dinas!==''?a.dinas:skDinasDefault(g),peran:a.peran||'',grup:a.grup||'',g}}
+function skSimpan(o,rerender){o.diubah=Date.now();return put('sk',o,{silent:!rerender})}
+function skSet(k,v,rerender){const d=skCur();if(!d)return;skSimpan(Object.assign({},d,{[k]:v}),rerender)}
+function skArr(k,i,f,v,rerender){const d=skCur();if(!d)return;const arr=(d[k]||[]).map(x=>Object.assign({},x));if(!arr[i])return;arr[i][f]=v;skSimpan(Object.assign({},d,{[k]:arr}),rerender)}
+function skArrOp(k,op,i){const d=skCur();if(!d)return;const arr=(d[k]||[]).slice();
+  if(op==='add')arr.push(k==='anggota'?{gid:'',peran:'',dinas:'',grup:(arr[arr.length-1]||{}).grup||''}:k==='tugas'?{jab:'',uraian:''}:{judul:'',isi:''});
+  else if(op==='del')arr.splice(i,1);else if(op==='up'&&i>0)[arr[i-1],arr[i]]=[arr[i],arr[i-1]];else if(op==='dn'&&i<arr.length-1)[arr[i+1],arr[i]]=[arr[i],arr[i+1]];
+  skSimpan(Object.assign({},d,{[k]:arr}),true)}
+function skPilihGuru(i,v){const d=skCur();if(!d)return;const arr=(d.anggota||[]).map(x=>Object.assign({},x));const a=arr[i];if(!a)return;
+  if(v==='__m'){a.gid='';a.nama=a.nama||'';}else{a.gid=v;a.nama='';a.nip='';a.gol='';a.dinas=''}skSimpan(Object.assign({},d,{anggota:arr}),true)}
+function skBaru(preset){const o=Object.assign(JSON.parse(JSON.stringify(SK_DEF)),{nomor:'400.3/……/SMPN 5/'+ROMBLN[new Date().getMonth()]+'/'+new Date().getFullYear(),dibuat:Date.now()},preset||{});
+  if(!preset)Object.assign(o,{nama:'Tim baru',judul:'PEMBENTUKAN TIM …… SMP NEGERI 5 TANGERANG TAHUN PELAJARAN '+(S.cfg.tahun||''),
+    menimbang:'bahwa ……;\nbahwa berdasarkan pertimbangan sebagaimana dimaksud pada huruf a, perlu menetapkan Keputusan Kepala SMP Negeri 5 Tangerang tentang ……',
+    mengingat:'Undang-Undang Nomor 20 Tahun 2003 tentang Sistem Pendidikan Nasional;\nUndang-Undang Nomor 14 Tahun 2005 tentang Guru dan Dosen.',
+    diktum:'Membentuk …… dengan susunan sebagaimana tercantum dalam Lampiran I Keputusan ini.\nTim mempunyai tugas sebagaimana tercantum dalam Lampiran II Keputusan ini.\nKeputusan ini berlaku sejak tanggal ditetapkan, dengan ketentuan apabila di kemudian hari terdapat kekeliruan akan diadakan perbaikan sebagaimana mestinya.',
+    tembusan:'Kepala Dinas Pendidikan Kota Tangerang;\nYang bersangkutan untuk dilaksanakan;\nArsip.',anggota:[{gid:(kepsekGuru()||{}).id||'',peran:'Penanggung Jawab',dinas:'Kepala Sekolah'}]});
+  put('sk',o).then(x=>{UI.skId=x.id;UI.tab.sk='buat';render()})}
+function skDuplikat(id){const d=get('sk',id);if(!d)return;const o=JSON.parse(JSON.stringify(d));delete o.id;delete o.tpl;o.nama=(o.nama||'SK')+' (salinan)';o.dibuat=Date.now();
+  put('sk',o).then(x=>{UI.skId=x.id;UI.tab.sk='buat';render();toast('SK diduplikat')})}
+function skHapus(id){const d=get('sk',id);if(!d)return;confirmBox(`Hapus SK <b>${esc(d.nama||d.judul||'')}</b>? Bisa dibatalkan dengan ↶ Urungkan.`,()=>{if(UI.skId===id)UI.skId=null;del('sk',id);toast('SK dihapus. Tekan ↶ Urungkan untuk mengembalikan.')})}
+
+/* ---------- tampilan cetak ---------- */
+const skBr=t=>esc(t).replace(/\n/g,'<br>');
+const SK_KECIL=new Set(['dan','di','ke','dari','dalam','melalui','untuk','pada','yang','atau','serta','tentang','bagi','oleh','sebagai']);
+function skJudulKalimat(t){return String(t||'').split(/\s+/).filter(Boolean).map((w,i)=>{const b=w.replace(/[^A-Za-z]/g,'');if(/\(/.test(w)||/^(SMP|SMA|SD|UPT|SSK|LCC|BOS|IPA|IPS|TIK|UKS|PBLHS|PIK-R|OSIS|RKAS|GSS|ANBK)$/.test(w.replace(/[(),.;]/g,''))||(/^[IVX]+$/.test(b)&&b.length>1))return w;const l=w.toLowerCase();return i>0&&SK_KECIL.has(l)?l:l.replace(/^(\W*)(\w)/,(m,p,c)=>p+c.toUpperCase())}).join(' ')}
+function skList(arr,mark){return `<table class="nb skt" style="margin:0">${arr.map((x,i)=>`<tr><td style="width:24px">${mark(i)}</td><td style="text-align:justify">${esc(x)}</td></tr>`).join('')}</table>`}
+function skMarkup(t){const L=String(t||'').split('\n');let h='',tbl=[],lst=[];
+  const fT=()=>{if(!tbl.length)return;const rows=tbl.map(r=>r.replace(/^\|/,'').replace(/\|$/,'').split('|').map(c=>c.trim())).filter(r=>!r.every(c=>/^:?-{2,}:?$/.test(c)));
+    const hd=rows[0]||[];h+=`<table class="skg"><thead><tr>${hd.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${rows.slice(1).map(r=>`<tr>${r.map((c,i)=>`<td${i===0&&/^\d+$/.test(c)?' class="c"':''}>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;tbl=[]};
+  const fL=()=>{if(!lst.length)return;h+=`<table class="nb skt" style="margin:0 0 4px 18px;width:calc(100% - 18px)">${lst.map(([m,x])=>`<tr><td style="width:24px">${esc(m)}</td><td style="text-align:justify">${esc(x)}</td></tr>`).join('')}</table>`;lst=[]};
+  L.forEach(x=>{const s=x.trim();let m;
+    if(s.startsWith('|')){fL();tbl.push(s);return}fT();
+    if(m=s.match(/^([0-9]{1,2}|[a-z])[.)]\s+(.*)$/)){lst.push([m[1]+'.',m[2]]);return}fL();
+    if(!s)return;
+    if(m=s.match(/^##\s+(.*)$/))h+=`<p style="font-weight:700;margin:10px 0 4px">${esc(m[1])}</p>`;
+    else if(m=s.match(/^#\s+(.*)$/))h+=`<p class="ttl">${esc(m[1])}</p>`;
+    else h+=`<p style="text-align:justify;margin:0 0 6px 18px">${esc(s)}</p>`});
+  fT();fL();return h}
+function skTtd(d,dgnTempat){const ks=kepsekGuru()||{};const nm=d.ttdNama||S.cfg.kepsek||ks.nama||'';const nip=d.ttdNip||S.cfg.nipKepsek||ks.nip||'';
+  return `<div class="ttd" style="page-break-inside:avoid"><div style="min-width:300px">${dgnTempat?`<table class="nb skt" style="width:auto;margin:0"><tr><td style="padding:0">Ditetapkan di</td><td style="padding:0 4px">:</td><td style="padding:0">${esc(d.tempat||'')}</td></tr><tr><td style="padding:0">Pada tanggal</td><td style="padding:0 4px">:</td><td style="padding:0">${esc(skTgl(d.tgl))}</td></tr></table><div style="border-top:1px solid #000;margin:2px 0 4px"></div>`:''}${skBr(d.ttdJab)}${ttdBlok(TTDON())}${esc(nm)}<br>NIP. ${esc(nip)}</div></div>`}
+function skLampHead(d,no){return `<table class="nb skt" style="width:auto;margin:0 0 10px">${[['Lampiran '+no,d.lampKet],['Nomor',d.nomor||'……'],['Tanggal',skTgl(d.tgl)]].map(([a,b])=>`<tr><td style="padding:0 4px 0 0;min-width:86px">${esc(a)}</td><td style="padding:0 4px">:</td><td style="padding:0">${esc(b)}</td></tr>`).join('')}</table>`}
+const skJudulL=t=>String(t||'').split('\n').filter(x=>x.trim()).map(x=>`<p class="ttl">${esc(x)}</p>`).join('');
+function skDiktum(d){const out=[];lines(d.diktum).forEach(x=>{if(x.startsWith('>')&&out.length)out[out.length-1].push(x.slice(1).trim());else out.push([x])});return out}
+function skNomorLamp(d){const n={};let i=0;if((d.anggota||[]).length)n.susunan=SK_ROM[i++];if((d.tugas||[]).length)n.tugas=SK_ROM[i++];n.lain=(d.lampLain||[]).map(()=>SK_ROM[i++]);return n}
+function gSKTim(d0){const d=skV(d0);const N=skNomorLamp(d);const pages=[];
+  const blok=(lbl,inner)=>`<tr><td style="width:104px">${lbl}</td><td style="width:10px">:</td><td>${inner}</td></tr>`;
+  const mn=lines(d.menimbang),mg=lines(d.mengingat),mp=lines(d.memperhatikan),tb=lines(d.tembusan);
+  const dk=skDiktum(d).map((ps,i)=>blok(SK_ORD[i]||String(i+1),ps.map((p,j)=>{const m=j>0&&p.match(/^(.+?)\s+:\s+(.+)$/);return m?`<table class="nb skt" style="width:auto;margin:0 0 0 0"><tr><td style="padding:0 6px 0 0;min-width:170px">${esc(m[1])}</td><td style="padding:0 4px">:</td><td style="padding:0">${esc(m[2])}</td></tr></table>`:`<div style="text-align:justify;margin:${j?'3px':'0'} 0 0">${esc(p)}</div>`}).join(''))).join('');
+  pages.push(`${kopHtml()}<p class="ttl">KEPUTUSAN ${esc(d.penetap)}</p><p class="c" style="margin:0">NOMOR: ${esc(d.nomor||'……')}</p>
+   <p class="ttl" style="margin-top:10px">TENTANG</p><p class="ttl" style="margin:2px 30px 0">${esc(d.judul)}</p>
+   <p class="ttl" style="margin:12px 0 8px">${esc(d.pembuka)}</p>
+   <table class="nb skt">${mn.length?blok('Menimbang',skList(mn,i=>String.fromCharCode(97+i)+'.')):''}${mg.length?blok('Mengingat',skList(mg,i=>(i+1)+'.')):''}${mp.length?blok('Memperhatikan',skList(mp,i=>(i+1)+'.')):''}</table>
+   <p class="ttl" style="margin:10px 0 8px">MEMUTUSKAN</p>
+   <table class="nb skt">${blok('Menetapkan',`<div style="text-align:justify">KEPUTUSAN ${esc(d.penetap)} TENTANG ${esc(d.judul)}.</div>`)}${dk}</table>
+   ${skTtd(d,true)}${tb.length?`<div style="margin-top:12px;font-size:11.5px;page-break-inside:avoid">Tembusan:${skList(tb,i=>(i+1)+'.')}</div>`:''}`);
+  if(N.susunan){const showD=!!String(d.kolDinas||'').trim();let no=0,last=null;const cols=showD?5:4;
+    const rows=(d.anggota||[]).map(a=>{const o=skOrang(a);let gr='';if(o.grup&&o.grup!==last){gr=`<tr><td colspan="${cols}" style="font-weight:700;background:#f3f3f3">${esc(o.grup)}</td></tr>`;no=0}last=o.grup||last;no++;
+      return gr+`<tr style="page-break-inside:avoid"><td class="c">${no}</td><td>${esc(o.nama)}${o.nip?`<br>NIP. ${esc(o.nip)}`:''}</td><td class="c">${esc(o.gol)}</td>${showD?`<td>${esc(o.dinas)}</td>`:''}<td>${esc(o.peran)}</td></tr>`}).join('');
+    pages.push(skLampHead(d,N.susunan)+skJudulL(d.judulLamp1||('SUSUNAN '+d.judul.replace(/^PEMBENTUKAN\s+/i,'')))+`<div style="height:8px"></div>
+     <table class="sks"><thead><tr><th style="width:34px">No</th><th>Nama / NIP</th><th style="width:96px">Pangkat/Gol</th>${showD?`<th style="width:150px">${esc(d.kolDinas)}</th>`:''}<th style="width:170px">${esc(d.kolPeran||'Jabatan dalam Tim')}</th></tr></thead><tbody>${rows}</tbody></table>`+skTtd(d,false))}
+  if(N.tugas)pages.push(skLampHead(d,N.tugas)+skJudulL(d.judulLamp2||('URAIAN TUGAS '+d.judul.replace(/^PEMBENTUKAN\s+/i,'')))+`<div style="height:8px"></div>
+     <table class="sks"><thead><tr><th style="width:34px">No</th><th style="width:170px">${esc(d.kolPeran||'Jabatan dalam Tim')}</th><th>Uraian Tugas</th></tr></thead><tbody>${(d.tugas||[]).map((t,i)=>`<tr style="page-break-inside:avoid"><td class="c">${i+1}</td><td>${esc(t.jab)}</td><td style="text-align:justify">${skBr(t.uraian)}</td></tr>`).join('')}</tbody></table>`+skTtd(d,false));
+  (d.lampLain||[]).forEach((L,i)=>pages.push(skLampHead(d,N.lain[i])+skJudulL(L.judul)+`<div style="height:6px"></div>`+skMarkup(L.isi)+skTtd(d,false)));
+  return pages}
+
+/* ---------- catat ke Tugas Tambahan (POKJA / Kepanitiaan) ---------- */
+function skSinkronTT(){const d=skCur();if(!d)return;const K=d.kategori||'POKJA';const nm=String(d.nama||'').trim();if(!nm){toast('Isi dulu nama singkat tim');return}
+  const A=(d.anggota||[]).filter(a=>a.gid&&get('guru',a.gid));const ada=ttAll().filter(t=>t.kategori===K&&t.jenis===nm);
+  confirmBox(`Catat ${A.length} anggota <b>${esc(nm)}</b> ke menu Tugas Tambahan (kategori ${esc(K)})? Peran mengikuti SK ini${ada.length?`; ${ada.length} catatan lama dengan nama yang sama akan diperbarui`:''}. Bisa dibatalkan dengan ↶ Urungkan.`,async()=>{
+    if(!panList(K).includes(nm))panSimpanList([...panList(K),nm],K);
+    const ids=new Set(A.map(a=>a.gid));for(const a of A){const ex=ada.find(t=>t.guruId===a.gid);const peran=a.peran||'Anggota';
+      if(ex){if(ex.peran!==peran)await put('tt',Object.assign({},ex,{peran}),{silent:true})}else await put('tt',{guruId:a.gid,kategori:K,jenis:nm,peran,jam:'',ket:'SK '+(d.nomor||'')},{silent:true})}
+    for(const t of ada)if(!ids.has(t.guruId))await del('tt',t.id);
+    skSimpan(Object.assign({},d,{sinkron:Date.now()}),true);toast('Anggota tercatat di Tugas Tambahan')},'Catat')}
+function skSuratTugas(){const d=skCur();if(!d)return;const A=(d.anggota||[]).filter(a=>a.gid&&orang(a.gid)&&!/penanggung jawab|pembina|pengarah/i.test(a.peran||''));
+  suBaru({kegiatan:d.nama||'',orang:A.map(a=>a.gid),peran:Object.fromEntries(A.map(a=>[a.gid,a.peran||''])),mode:'kolektif',
+    dasar:`Keputusan ${skV(d).lampKet.replace(/^Keputusan\s+/,'')} Nomor ${d.nomor||'……'} tanggal ${skTgl(d.tgl)} tentang ${skJudulKalimat(d.judul)}`,
+    untuk:`Melaksanakan tugas sebagai anggota ${d.nama||'tim'} sesuai dengan peran masing-masing.`,tglSurat:d.tgl||undefined});location.hash='#surat'}
+
+/* ---------- editor ---------- */
+function skOrangOpt(sel){const G=dukUrut(guruList()),T=dukUrut(all('tendik'));
+  return `<option value="__m" ${!sel?'selected':''}>— isi manual (di luar DUK) —</option><optgroup label="Guru (urut DUK)">${G.map(g=>`<option value="${g.id}" ${g.id===sel?'selected':''}>${esc(g.nama)}</option>`).join('')}</optgroup>${T.length?`<optgroup label="Tenaga kependidikan">${T.map(g=>`<option value="${g.id}" ${g.id===sel?'selected':''}>${esc(g.nama)}</option>`).join('')}</optgroup>`:''}`}
+function skBuat(){const d0=skCur();
+  if(!d0)return `<div class="card empty">Belum ada SK yang dibuka. <button class="btn p" onclick="skBaru()">+ SK baru</button> atau pilih dari tab <b>Daftar SK</b>.</div>`;
+  const d=skV(d0);const id=d.id;
+  const f=(k,l,ph='',full)=>`<label${full?' class="full"':''}>${l}<input value="${esc(d[k]||'')}" placeholder="${esc(ph)}" onchange="skSet('${k}',this.value.trim(),1)"></label>`;
+  const ta=(k,l,ph,r=3,help='')=>`<label class="full">${l}${help?` <span class="small muted">${help}</span>`:''}<textarea rows="${r}" placeholder="${esc(ph)}" onchange="skSet('${k}',this.value,1)">${esc(d[k]||'')}</textarea></label>`;
+  const btn=(k,i,n)=>`<span style="white-space:nowrap"><button class="btn sm" title="Naik" onclick="skArrOp('${k}','up',${i})" ${i===0?'disabled':''}>↑</button><button class="btn sm" title="Turun" onclick="skArrOp('${k}','dn',${i})" ${i===n-1?'disabled':''}>↓</button><button class="btn sm d" title="Hapus baris" onclick="skArrOp('${k}','del',${i})">✕</button></span>`;
+  const A=d.anggota||[];const showD=!!String(d.kolDinas||'').trim();
+  const rowsA=A.map((a,i)=>{const o=skOrang(a);return `<tr><td class="c muted">${i+1}</td>
+    <td style="min-width:230px"><select onchange="skPilihGuru(${i},this.value)" style="width:100%">${skOrangOpt(a.gid)}</select>${a.gid?`<div class="small muted">NIP ${esc(o.nip||'-')} · ${esc(o.gol)}</div>`:`<input placeholder="Nama & gelar" value="${esc(a.nama||'')}" onchange="skArr('anggota',${i},'nama',this.value.trim(),1)" style="width:100%;margin-top:3px"><div style="display:flex;gap:4px;margin-top:3px"><input placeholder="NIP" value="${esc(a.nip||'')}" onchange="skArr('anggota',${i},'nip',this.value.trim(),1)" style="flex:1"><input placeholder="Pangkat/Gol" value="${esc(a.gol||'')}" onchange="skArr('anggota',${i},'gol',this.value.trim(),1)" style="width:110px"></div>`}</td>
+    ${showD?`<td><input value="${esc(a.dinas!=null&&a.dinas!==''?a.dinas:'')}" placeholder="${esc(skDinasDefault(o.g))}" onchange="skArr('anggota',${i},'dinas',this.value.trim(),1)" style="width:100%"></td>`:''}
+    <td><input value="${esc(a.peran||'')}" placeholder="mis. Ketua" onchange="skArr('anggota',${i},'peran',this.value.trim(),1)" style="width:100%"></td>
+    <td><input value="${esc(a.grup||'')}" placeholder="(opsional)" onchange="skArr('anggota',${i},'grup',this.value.trim(),1)" style="width:100%"></td><td>${btn('anggota',i,A.length)}</td></tr>`}).join('');
+  const T=d.tugas||[];
+  const rowsT=T.map((t,i)=>`<tr><td class="c muted">${i+1}</td><td style="width:200px"><input value="${esc(t.jab||'')}" onchange="skArr('tugas',${i},'jab',this.value.trim(),1)" style="width:100%"></td><td><textarea rows="2" onchange="skArr('tugas',${i},'uraian',this.value,1)" style="width:100%">${esc(t.uraian||'')}</textarea></td><td>${btn('tugas',i,T.length)}</td></tr>`).join('');
+  const LL=d.lampLain||[];
+  const lain=LL.map((L,i)=>`<div class="card" style="margin:8px 0;padding:10px"><div class="bar" style="margin:0 0 6px"><b>Lampiran tambahan ${i+1}</b><span class="sp"></span>${btn('lampLain',i,LL.length)}</div><div class="form">
+    <label class="full">Judul lampiran <span class="small muted">(satu baris = satu baris judul)</span><textarea rows="2" onchange="skArr('lampLain',${i},'judul',this.value,1)">${esc(L.judul||'')}</textarea></label>
+    <label class="full">Isi <span class="small muted">## Subjudul · 1. butir bernomor · a. butir huruf · | kolom | kolom | untuk tabel (baris pertama = judul kolom)</span><textarea rows="12" onchange="skArr('lampLain',${i},'isi',this.value,1)" style="font-family:ui-monospace,monospace;font-size:12px">${esc(L.isi||'')}</textarea></label></div></div>`).join('');
+  return `<div class="bar"><button class="btn" onclick="UI.tab.sk='daftar';render()">← Daftar SK</button><button class="btn" onclick="skBaru()">+ SK baru</button><button class="btn" onclick="skDuplikat('${id}')">Duplikat</button><button class="btn d" onclick="skHapus('${id}')">Hapus</button><span class="small muted">Tersimpan otomatis · bisa dibatalkan dengan ↶ Urungkan</span>${cetakBar('SK '+(d.nama||''),()=>gSKTim(skCur()),null,null)}</div>
+  <div class="grid g2" style="align-items:start"><div>
+   <div class="card"><h3>Identitas SK</h3><div class="form">
+    ${f('nama','Nama singkat (untuk daftar & Tugas Tambahan)','mis. Tim SSK')}<label>Kategori di Tugas Tambahan<select onchange="skSet('kategori',this.value,1)">${['POKJA','Kepanitiaan'].map(k=>`<option ${d.kategori===k?'selected':''}>${k}</option>`).join('')}</select></label>
+    <label class="full">Tentang (judul SK)<textarea rows="2" onchange="skSet('judul',this.value.trim(),1)">${esc(d.judul)}</textarea></label>
+    ${f('nomor','Nomor SK','400.3/…/SMPN 5/XI/2026')}<label>Tanggal ditetapkan<input type="date" value="${esc(d.tgl||'')}" onchange="skSet('tgl',this.value,1)"></label>
+    ${f('tempat','Ditetapkan di','Tangerang')}${f('penetap','Penetap (baris KEPUTUSAN …)','KEPALA SMP NEGERI 5 TANGERANG')}
+    ${f('pembuka','Baris sebelum Menimbang','PLT. KEPALA SMP NEGERI 5 TANGERANG,','',1)}
+    <label class="full">Jabatan penanda tangan <span class="small muted">(boleh 2 baris)</span><textarea rows="2" onchange="skSet('ttdJab',this.value,1)">${esc(d.ttdJab)}</textarea></label>
+    ${f('ttdNama','Nama penanda tangan','kosong = dari Pengaturan')}${f('ttdNip','NIP penanda tangan','kosong = dari Pengaturan')}
+    ${f('lampKet','Keterangan di kepala lampiran','Keputusan Kepala SMP Negeri 5 Tangerang','',1)}
+   </div></div>
+   <div class="card"><h3>Isi SK <small>satu butir per baris, nomor & huruf otomatis</small></h3><div class="form">
+    ${ta('menimbang','Menimbang','bahwa …',4)}${ta('mengingat','Mengingat','Undang-Undang Nomor …',5)}${ta('memperhatikan','Memperhatikan (opsional)','',2)}
+    ${ta('diktum','Diktum KESATU, KEDUA, …','Membentuk …',5,'baris diawali > = paragraf lanjutan diktum sebelumnya; "Babak final : Kamis, …" jadi baris rapi')}
+    ${ta('tembusan','Tembusan','Kepala Dinas Pendidikan Kota Tangerang;',3)}
+   </div></div>
+  </div><div>
+   <div class="card"><h3>Lampiran I – Susunan <small>${A.length} orang</small></h3>
+    <div class="form" style="margin-bottom:8px">${f('kolPeran','Judul kolom peran','Jabatan dalam Tim')}${f('kolDinas','Judul kolom jabatan dinas (kosong = kolom disembunyikan)','Jabatan Dinas')}
+     <label class="full">Judul lampiran <span class="small muted">(kosong = otomatis)</span><textarea rows="2" onchange="skSet('judulLamp1',this.value,1)">${esc(d.judulLamp1||'')}</textarea></label></div>
+    <div class="tw"><table><thead><tr><th>No</th><th>Nama (dari DUK)</th>${showD?'<th>Jabatan dinas</th>':''}<th>Peran</th><th>Kelompok</th><th></th></tr></thead><tbody>${rowsA||`<tr><td colspan="6" class="c muted">Belum ada anggota</td></tr>`}</tbody></table></div>
+    <div class="bar" style="margin-top:6px"><button class="btn p sm" onclick="skArrOp('anggota','add')">+ Anggota</button><button class="btn sm" onclick="skSinkronTT()" title="Masukkan anggota ke menu Tugas Tambahan agar terhitung di DUK & beban kerja">Catat di Tugas Tambahan</button><button class="btn sm" onclick="skSuratTugas()">Buat surat tugas</button></div>
+    <p class="small muted" style="margin:4px 0 0">Nama, NIP, dan pangkat diambil otomatis dari Guru & DUK. Kolom <b>Kelompok</b> dipakai bila tabel perlu dibagi, mis. "A. PANITIA" dan "B. JURI".${d.sinkron?` Terakhir dicatat di Tugas Tambahan: ${new Date(d.sinkron).toLocaleDateString('id-ID')}.`:''}</p></div>
+   <div class="card"><h3>Lampiran II – Uraian tugas <small>${T.length} jabatan · kosongkan bila tidak perlu</small></h3>
+    <div class="form" style="margin-bottom:8px"><label class="full">Judul lampiran <span class="small muted">(kosong = otomatis)</span><textarea rows="2" onchange="skSet('judulLamp2',this.value,1)">${esc(d.judulLamp2||'')}</textarea></label></div>
+    ${T.length?`<div class="tw"><table><thead><tr><th>No</th><th>Jabatan</th><th>Uraian tugas</th><th></th></tr></thead><tbody>${rowsT}</tbody></table></div>`:''}
+    <div class="bar" style="margin-top:6px"><button class="btn p sm" onclick="skArrOp('tugas','add')">+ Jabatan</button></div></div>
+   <div class="card"><h3>Lampiran tambahan <small>program kerja, jadwal, dll.</small></h3>${lain}<div class="bar"><button class="btn p sm" onclick="skArrOp('lampLain','add')">+ Lampiran</button></div></div>
+  </div></div>
+  <h3 style="margin:14px 0 6px">Pratinjau</h3>${docPreview(gSKTim(d))}`}
+function skDaftar(){const L=skAll();const tplAda=new Set(L.map(x=>x.tpl).filter(Boolean));const sisa=SK_TPL().filter(t=>!tplAda.has(t.tpl)).length;
+  return `<div class="bar"><button class="btn p" onclick="skBaru()">+ SK baru (kosong)</button><button class="btn" onclick="skTplModal()">＋ Masukkan SK bawaan${sisa?` (${sisa})`:''}</button><span class="small muted">SK di sini terpisah dari SK Pembagian Tugas (menu Tugas Tambahan → SK & Lampiran).</span></div>
+  ${L.length?`<div class="tw"><table><thead><tr><th>No</th><th>Nama</th><th>Tentang</th><th>Nomor</th><th>Tanggal</th><th class="n">Anggota</th><th></th></tr></thead><tbody>${L.map((d,i)=>`<tr><td class="c muted">${i+1}</td><td><b>${esc(d.nama||'')}</b></td><td class="small" style="max-width:380px">${esc(d.judul||'')}</td><td class="small">${esc(d.nomor||'')}</td><td class="small">${esc(skTgl(d.tgl))}</td><td class="n">${(d.anggota||[]).length}</td>
+   <td style="white-space:nowrap"><button class="btn sm p" onclick="UI.skId='${d.id}';UI.tab.sk='buat';render()">Buka</button> <button class="btn sm" onclick="skDuplikat('${d.id}')">Duplikat</button> <button class="btn sm d" onclick="skHapus('${d.id}')">Hapus</button></td></tr>`).join('')}</tbody></table></div>`:`<div class="card empty">Belum ada SK. Klik <b>＋ Masukkan SK bawaan</b> untuk memasukkan SK yang sudah disusun (SSK, GSS, LCC, Adiwiyata, Lab IPA, Lab Komputer), atau buat yang baru.</div>`}`}
+function skTplModal(){const ada=new Set(skAll().map(x=>x.tpl).filter(Boolean));const T=SK_TPL();
+  openModal(`<h2>Masukkan SK bawaan</h2><p class="small muted">Nama, NIP, dan pangkat anggota dicocokkan dengan data Guru & DUK berdasarkan NIP. SK yang sudah pernah dimasukkan ditandai.</p>
+   <div class="checks" id="skTp" style="flex-direction:column;align-items:flex-start">${T.map((t,i)=>`<label><input type="checkbox" value="${i}" ${ada.has(t.tpl)?'':'checked'}> <b>${esc(t.nama)}</b> <span class="small muted">— ${(t.anggota||[]).length} orang${ada.has(t.tpl)?' · sudah ada':''}</span></label>`).join('')}</div>
+   <div class="mfoot"><button class="btn" onclick="closeModal()">Batal</button><button class="btn p" id="skTpGo">Masukkan</button></div>`);
+  $('#skTpGo').onclick=async()=>{const pil=[...document.querySelectorAll('#skTp input:checked')].map(x=>T[+x.value]);closeModal();if(!pil.length)return;let tdk=0;
+    for(const t of pil){const o=JSON.parse(JSON.stringify(t));o.dibuat=Date.now();o.anggota=(o.anggota||[]).map(a=>{const g=a.nip?skCariNip(a.nip):null;if(g)return {gid:g.id,peran:a.peran,dinas:a.dinas||'',grup:a.grup||''};if(a.nip)tdk++;return {gid:'',nama:a.nama,nip:a.nip||'',gol:a.gol||'',peran:a.peran,dinas:a.dinas||'',grup:a.grup||''}});
+      await put('sk',o,{silent:true})}
+    render();toast(`${pil.length} SK dimasukkan${tdk?` · ${tdk} nama tidak ketemu di DUK, diisi manual`:''}`)}}
+function vSK(){const tab=UI.tab.sk||(UI.skId&&skCur()?'buat':'daftar');
+  return `<div class="tabs">${[['daftar','🗂 Daftar SK'],['buat','✎ Susun / Ubah SK']].map(([k,l])=>`<a class="${tab===k?'on':''}" onclick="UI.tab.sk='${k}';render()">${l}</a>`).join('')}</div>`+(tab==='buat'?skBuat():skDaftar())}
+
+/* ---------- SK bawaan (disusun di chat bersama Claude, November 2026) ---------- */
+function SK_TPL(){
+const KS={ttdNama:'H. MOHAMAD ISDARMANTO, M.Pd',ttdNip:'19790217 200501 1 010'};
+const PJ={nip:'19790217 200501 1 010',nama:'H. MOHAMAD ISDARMANTO, M.Pd',gol:'Pembina, IV/a',dinas:'Plt. Kepala Sekolah',peran:'Penanggung Jawab'};
+const KURIKULUM='Peraturan Menteri tentang Kurikulum pada Pendidikan Anak Usia Dini, Jenjang Pendidikan Dasar, dan Jenjang Pendidikan Menengah yang berlaku beserta perubahannya';
+const LAB_DASAR=['Undang-Undang Nomor 20 Tahun 2003 tentang Sistem Pendidikan Nasional;','Undang-Undang Nomor 14 Tahun 2005 tentang Guru dan Dosen;',
+  'Peraturan Pemerintah Nomor 57 Tahun 2021 tentang Standar Nasional Pendidikan sebagaimana telah diubah dengan Peraturan Pemerintah Nomor 4 Tahun 2022;',
+  'Peraturan Menteri Pendidikan Nasional Nomor 26 Tahun 2008 tentang Standar Tenaga Laboratorium Sekolah/Madrasah;',
+  'Peraturan Menteri Pendidikan, Kebudayaan, Riset, dan Teknologi Nomor 22 Tahun 2023 tentang Standar Sarana dan Prasarana pada Pendidikan Anak Usia Dini, Jenjang Pendidikan Dasar, dan Jenjang Pendidikan Menengah;',
+  'Peraturan Menteri Pendidikan Dasar dan Menengah Nomor 11 Tahun 2025 tentang Pemenuhan Beban Kerja Guru.'].join('\n');
+const umum={tempat:'Tangerang',penetap:'KEPALA SMP NEGERI 5 TANGERANG',pembuka:'PLT. KEPALA SMP NEGERI 5 TANGERANG,',ttdJab:'Plt. Kepala SMP Negeri 5 Tangerang,',lampKet:'Keputusan Kepala SMP Negeri 5 Tangerang',kolDinas:'Jabatan Dinas',kolPeran:'Jabatan dalam Tim',kategori:'POKJA',memperhatikan:'',lampLain:[],...KS};
+return [
+/* ===== 1. SSK ===== */
+{...umum,tpl:'ssk',nama:'Tim SSK',nomor:'400.3/……/SMPN 5/XI/2026',tgl:'2026-11-01',
+ judul:'PEMBENTUKAN TIM PENGELOLA SEKOLAH SIAGA KEPENDUDUKAN (SSK) SMP NEGERI 5 TANGERANG TAHUN PELAJARAN 2026/2027',
+ menimbang:['bahwa untuk menanamkan pemahaman, kesadaran, sikap, dan perilaku berwawasan kependudukan kepada peserta didik, perlu diselenggarakan pendidikan kependudukan, keluarga berencana, dan pembangunan keluarga di sekolah;',
+  'bahwa SMP Negeri 5 Tangerang secara mandiri berinisiatif menyelenggarakan program Sekolah Siaga Kependudukan (SSK) sebagai bagian dari program pengembangan sekolah;',
+  'bahwa agar program SSK berjalan terarah dan berkelanjutan, perlu dibentuk Tim Pengelola SSK;',
+  'bahwa berdasarkan pertimbangan sebagaimana dimaksud pada huruf a, b, dan c, perlu menetapkan Keputusan Kepala SMP Negeri 5 Tangerang tentang Pembentukan Tim Pengelola Sekolah Siaga Kependudukan;'].join('\n'),
+ mengingat:['Undang-Undang Nomor 20 Tahun 2003 tentang Sistem Pendidikan Nasional;','Undang-Undang Nomor 52 Tahun 2009 tentang Perkembangan Kependudukan dan Pembangunan Keluarga;',
+  'Peraturan Pemerintah Nomor 87 Tahun 2014 tentang Perkembangan Kependudukan dan Pembangunan Keluarga, Keluarga Berencana, dan Sistem Informasi Keluarga;',
+  'Peraturan Presiden Nomor 153 Tahun 2014 tentang Grand Design Pembangunan Kependudukan;','Peraturan Presiden Nomor 72 Tahun 2021 tentang Percepatan Penurunan Stunting;',KURIKULUM+';',
+  'Pedoman Pengelolaan Pendidikan Kependudukan melalui Sekolah Siaga Kependudukan (SSK) di SMP, SMA, dan Sederajat, BKKBN Tahun 2017.'].join('\n'),
+ memperhatikan:'Rencana Kerja Sekolah SMP Negeri 5 Tangerang Tahun Pelajaran 2026/2027;\nHasil rapat pimpinan dan dewan guru SMP Negeri 5 Tangerang tanggal …… 2026.',
+ diktum:['Membentuk Tim Pengelola Sekolah Siaga Kependudukan (SSK) SMP Negeri 5 Tangerang Tahun Pelajaran 2026/2027 dengan susunan sebagaimana tercantum dalam Lampiran I Keputusan ini.',
+  'Tim sebagaimana dimaksud pada Diktum KESATU mempunyai tugas sebagaimana tercantum dalam Lampiran II Keputusan ini.',
+  'Tim melaksanakan Program Kerja SSK sebagaimana tercantum dalam Lampiran III Keputusan ini dan melaporkan hasilnya kepada Kepala Sekolah setiap akhir semester.',
+  'Keputusan ini berlaku sejak tanggal ditetapkan sampai dengan berakhirnya Tahun Pelajaran 2026/2027, dengan ketentuan apabila di kemudian hari terdapat kekeliruan akan diadakan perbaikan sebagaimana mestinya.'].join('\n'),
+ tembusan:'Kepala Dinas Pendidikan Kota Tangerang;\nKepala Dinas Pemberdayaan Perempuan, Perlindungan Anak, Pengendalian Penduduk, dan Keluarga Berencana (DP3AP2KB) Kota Tangerang;\nKepala Perwakilan Kemendukbangga/BKKBN Provinsi Banten;\nArsip.',
+ judulLamp1:'SUSUNAN TIM PENGELOLA SEKOLAH SIAGA KEPENDUDUKAN (SSK)\nSMP NEGERI 5 TANGERANG TAHUN PELAJARAN 2026/2027',
+ judulLamp2:'URAIAN TUGAS TIM PENGELOLA SEKOLAH SIAGA KEPENDUDUKAN (SSK)\nSMP NEGERI 5 TANGERANG TAHUN PELAJARAN 2026/2027',
+ anggota:[PJ,
+  {nip:'19800608 202221 1 004',nama:'FIRMAN JUNAIDI, S.Sos',gol:'IX',dinas:'Wakasek Kesiswaan',peran:'Ketua'},
+  {nip:'20000408 202521 2 018',nama:'APRILIA WIJI ASTUTI, S.Pd',gol:'IX',dinas:'Guru BK / Staf Humas',peran:'Sekretaris'},
+  {nip:'19740513 200604 2 020',nama:'NANIK BUDIATI, S.Pd',gol:'Penata Tk I, III/d',dinas:'Guru IPS / Koordinator MGMP IPS',peran:'Koordinator Integrasi Pembelajaran'},
+  {nip:'19720605 200604 2 016',nama:'ERNI SAOMI KURNIAWATY, M.Pd',gol:'Penata Tk I, III/d',dinas:'Guru IPA / Koordinator MGMP IPA',peran:'Anggota Integrasi Pembelajaran'},
+  {nip:'20000227 202521 2 018',nama:'EKA ASTRI DEVI, S.Pd',gol:'IX',dinas:'Guru BK / Duta KKR dan PIK-R',peran:'Koordinator PIK-R & Konseling Remaja'},
+  {nip:'19960908 202221 2 010',nama:'LIA AMATUN NUR, S.Or',gol:'IX',dinas:'Guru PJOK / Pembina OSIS',peran:'Koordinator Kesiswaan & Duta GenRe'},
+  {nip:'19930913 202521 2 025',nama:'ERNAWATI, S.Pd',gol:'IX',dinas:'Guru Pendidikan Pancasila / Duta Cinta Tanah Air',peran:'Koordinator Pojok Kependudukan'}],
+ tugas:[
+  {jab:'Penanggung Jawab',uraian:'Menetapkan kebijakan SSK di sekolah; memastikan dukungan sarana dan prasarana; menandatangani dokumen dan laporan; menjalin koordinasi dengan Dinas Pendidikan, DP3AP2KB, dan BKKBN.'},
+  {jab:'Ketua',uraian:'Memimpin perencanaan, pelaksanaan, dan evaluasi program SSK; mengoordinasikan integrasi materi kependudukan ke dalam pembelajaran dan kegiatan kesiswaan; menjalin kerja sama dengan DP3AP2KB, puskesmas, penyuluh KB, dan mitra lain; memimpin rapat tim.'},
+  {jab:'Sekretaris',uraian:'Mengelola administrasi dan persuratan tim; membuat notulen rapat; mendokumentasikan kegiatan; menyusun dan mengarsipkan laporan semester dan tahunan.'},
+  {jab:'Koordinator & Anggota Integrasi Pembelajaran',uraian:'Memetakan capaian pembelajaran yang dapat dikaitkan dengan isu kependudukan (pertumbuhan penduduk, kesehatan reproduksi remaja, gizi dan stunting, lingkungan, ketahanan keluarga); menyusun modul ajar terintegrasi; mendampingi guru lain melalui MGMP sekolah.'},
+  {jab:'Koordinator PIK-R & Konseling Remaja',uraian:'Membentuk dan membina Pusat Informasi dan Konseling Remaja (PIK-R); memberikan layanan informasi dan konseling seputar pendewasaan usia perkawinan, kesehatan reproduksi, dan bahaya NAPZA; menyiapkan pendidik dan konselor sebaya.'},
+  {jab:'Koordinator Kesiswaan & Duta GenRe',uraian:'Mengintegrasikan SSK ke kegiatan OSIS dan ekstrakurikuler; menyelenggarakan pemilihan Duta GenRe/Duta Kependudukan sekolah; mempublikasikan kegiatan SSK melalui media sekolah.'},
+  {jab:'Koordinator Pojok Kependudukan',uraian:'Menata dan mengelola Pojok Kependudukan (buku, poster, data kependudukan, media digital); memperbarui bahan secara berkala; mencatat kunjungan dan pemanfaatannya.'}],
+ lampLain:[{judul:'PROGRAM KERJA SEKOLAH SIAGA KEPENDUDUKAN (SSK)\nSMP NEGERI 5 TANGERANG TAHUN PELAJARAN 2026/2027',isi:[
+  '## A. Latar Belakang',
+  'Persoalan kependudukan seperti pernikahan usia anak, stunting, kesehatan reproduksi remaja, dan tekanan penduduk terhadap lingkungan perlu dikenalkan sejak usia sekolah. Pemerintah melalui Kemendukbangga/BKKBN menyelenggarakan Sekolah Siaga Kependudukan (SSK) sebagai wadah pendidikan kependudukan, keluarga berencana, dan pembangunan keluarga di sekolah, sesuai amanat UU Nomor 52 Tahun 2009.',
+  'SMP Negeri 5 Tangerang berinisiatif menyelenggarakan SSK secara mandiri, sebelum ada penunjukan dari instansi terkait. Pengalaman sekolah sebagai Sekolah Adiwiyata Mandiri dan Sekolah Penggerak menjadi modal untuk mengintegrasikan isu kependudukan ke dalam pembelajaran, kokurikuler, dan kegiatan kesiswaan.',
+  '## B. Tujuan',
+  '1. Meningkatkan pemahaman peserta didik tentang isu kependudukan, keluarga berencana, dan pembangunan keluarga.',
+  '2. Membentuk sikap dan perilaku berwawasan kependudukan sebagai Generasi Berencana (GenRe), termasuk pendewasaan usia perkawinan dan hidup sehat.',
+  '3. Mengintegrasikan materi kependudukan ke dalam kurikulum operasional sekolah, modul ajar, dan kegiatan sekolah.',
+  '4. Menyediakan sarana belajar kependudukan melalui Pojok Kependudukan dan PIK-R.',
+  '## C. Sasaran',
+  'Peserta didik kelas VII–IX, pendidik dan tenaga kependidikan, serta orang tua/wali peserta didik SMP Negeri 5 Tangerang.',
+  '## D. Matriks Kegiatan',
+  '| No | Kegiatan | Sasaran | Waktu | Penanggung Jawab | Indikator Keberhasilan |',
+  '| 1 | Penetapan SK, rapat koordinasi Tim SSK, dan pemberitahuan ke DP3AP2KB Kota Tangerang untuk permohonan pendampingan | Tim SSK | November 2026 | Kepala Sekolah & Ketua | SK terbit; notulen rapat dan pembagian tugas tersedia |',
+  '| 2 | Sosialisasi SSK kepada guru dan tenaga kependidikan | Pendidik & tendik | Desember 2026 | Ketua | Seluruh guru mengikuti sosialisasi (daftar hadir) |',
+  '| 3 | Pemasangan papan nama SSK dan deklarasi SSK | Warga sekolah | Desember 2026 | Kepala Sekolah & Ketua | Papan nama terpasang; dokumen deklarasi ditandatangani |',
+  '| 4 | Penataan Pojok Kependudukan | Peserta didik | Desember 2026 – Januari 2027 | Koordinator Pojok Kependudukan | Pojok tersedia dengan buku, poster, data kependudukan, dan buku kunjungan |',
+  '| 5 | Pemetaan CP dan penyusunan modul ajar terintegrasi kependudukan | Guru IPS, IPA, dan mapel terkait | Januari 2027 | Koordinator Integrasi Pembelajaran | Minimal 1 modul ajar terintegrasi per mapel sasaran |',
+  '| 6 | Pelaksanaan pembelajaran terintegrasi di kelas | Peserta didik kelas VII–IX | Januari – Mei 2027 | Guru mapel sasaran | Modul diterapkan; ada bukti asesmen dan dokumentasi |',
+  '| 7 | Pembentukan dan pembinaan PIK-R | Peserta didik | Januari 2027, pembinaan rutin bulanan | Koordinator PIK-R | PIK-R terbentuk dengan SK, pengurus, dan jadwal kegiatan |',
+  '| 8 | Sosialisasi kesehatan reproduksi remaja, pencegahan pernikahan anak, dan NAPZA bersama mitra | Peserta didik kelas VIII–IX | Februari 2027 | Ketua & Koordinator PIK-R | Kegiatan terlaksana bersama narasumber DP3AP2KB/puskesmas |',
+  '| 9 | Pemilihan Duta GenRe/Duta Kependudukan sekolah | Peserta didik | Maret 2027 | Koordinator Kesiswaan & OSIS | Duta terpilih dan aktif dalam kampanye sekolah |',
+  '| 10 | Kampanye dan lomba bertema kependudukan (poster, video pendek, cerdas cermat) | Peserta didik | April 2027 | Koordinator Kesiswaan & Pojok Kependudukan | Karya peserta didik dipajang/dipublikasikan |',
+  '| 11 | Sosialisasi SSK kepada orang tua/wali | Orang tua/wali | Saat pembagian rapor semester genap | Ketua | Materi tersampaikan; daftar hadir orang tua |',
+  '| 12 | Monitoring dan evaluasi program SSK | Tim SSK | Akhir semester ganjil & genap | Ketua & Sekretaris | Instrumen monev terisi; rekomendasi tindak lanjut tersusun |',
+  '| 13 | Penyusunan laporan tahunan SSK | Kepala Sekolah, Dinas, DP3AP2KB | Juni 2027 | Sekretaris | Laporan lengkap dengan bukti dukung diserahkan |',
+  '## E. Monitoring, Evaluasi, dan Pelaporan',
+  'Monitoring dilakukan setiap bulan melalui rapat tim. Evaluasi dilakukan setiap akhir semester berdasarkan indikator pada matriks kegiatan. Hasil evaluasi dilaporkan kepada Kepala Sekolah dan menjadi dasar penyusunan program tahun berikutnya.',
+  '## F. Penutup',
+  'Program kerja ini menjadi acuan Tim Pengelola SSK dalam melaksanakan kegiatan selama Tahun Pelajaran 2026/2027 dan dapat disesuaikan dengan kebijakan sekolah serta arahan instansi pembina.'].join('\n')}]},
+
+/* ===== 2. Gerakan Sekolah Sehat (versi ringkas) ===== */
+{...umum,tpl:'gss',nama:'Tim Gerakan Sekolah Sehat',nomor:'270/400.3.5.08/SMP5/IX/2026',tgl:'2026-09-01',kolDinas:'Jabatan Pokok',
+ judul:'PEMBENTUKAN TIM PELAKSANA GERAKAN SEKOLAH SEHAT SMP NEGERI 5 TANGERANG TAHUN PELAJARAN 2026/2027',
+ menimbang:'bahwa dalam rangka meningkatkan derajat kesehatan dan membiasakan perilaku hidup bersih dan sehat bagi seluruh warga SMP Negeri 5 Tangerang, perlu dilaksanakan Gerakan Sekolah Sehat melalui penguatan Usaha Kesehatan Sekolah/Madrasah (UKS/M);\nbahwa berdasarkan pertimbangan sebagaimana dimaksud pada huruf a, perlu menetapkan Keputusan Kepala SMP Negeri 5 Tangerang tentang Pembentukan Tim Pelaksana Gerakan Sekolah Sehat Tahun Pelajaran 2026/2027.',
+ mengingat:['Undang-Undang Nomor 20 Tahun 2003 tentang Sistem Pendidikan Nasional;','Undang-Undang Nomor 17 Tahun 2023 tentang Kesehatan;',
+  'Peraturan Pemerintah Nomor 28 Tahun 2024 tentang Peraturan Pelaksanaan Undang-Undang Nomor 17 Tahun 2023 tentang Kesehatan;',
+  'Peraturan Bersama Menteri Pendidikan dan Kebudayaan, Menteri Kesehatan, Menteri Agama, dan Menteri Dalam Negeri Nomor 6/X/PB/2014, Nomor 73 Tahun 2014, Nomor 41 Tahun 2014, Nomor 81 Tahun 2014 tentang Pembinaan dan Pengembangan Usaha Kesehatan Sekolah/Madrasah;',
+  'Peraturan Menteri Pendidikan dan Kebudayaan Nomor 75 Tahun 2016 tentang Komite Sekolah.'].join('\n'),
+ diktum:['Membentuk Tim Pelaksana Gerakan Sekolah Sehat SMP Negeri 5 Tangerang Tahun Pelajaran 2026/2027 dengan susunan keanggotaan sebagaimana tercantum dalam Lampiran I Keputusan ini.',
+  'Tim bertugas merencanakan, melaksanakan, memantau, dan melaporkan kegiatan Gerakan Sekolah Sehat sebagaimana tercantum dalam Lampiran II Keputusan ini.',
+  'Segala biaya yang timbul akibat Keputusan ini dibebankan pada anggaran yang sah dan tersedia di SMP Negeri 5 Tangerang.',
+  'Keputusan ini berlaku sejak tanggal ditetapkan, dengan ketentuan apabila terdapat kekeliruan akan diperbaiki sebagaimana mestinya.'].join('\n'),
+ tembusan:'Kepala Dinas Pendidikan Kota Tangerang;\nPengawas Sekolah Pembina;\nKepala Puskesmas ……;\nYang bersangkutan untuk dilaksanakan.',
+ judulLamp1:'SUSUNAN TIM PELAKSANA GERAKAN SEKOLAH SEHAT\nSMP NEGERI 5 TANGERANG TAHUN PELAJARAN 2026/2027',
+ judulLamp2:'URAIAN TUGAS TIM PELAKSANA GERAKAN SEKOLAH SEHAT\nSMP NEGERI 5 TANGERANG TAHUN PELAJARAN 2026/2027',
+ anggota:[PJ,
+  {nip:'19801226 202421 2 007',nama:'MINARSIH, S.Pd',gol:'IX',dinas:'Guru IPS',peran:'Ketua'},
+  {nip:'20000227 202521 2 018',nama:'EKA ASTRI DEVI, S.Pd',gol:'IX',dinas:'Guru BK',peran:'Sekretaris'},
+  {nip:'19820722 200604 2 012',nama:'HILWUTTHIN, S.Pd',gol:'Pembina, IV/a',dinas:'Guru BK',peran:'Koordinator Sehat Bergizi'},
+  {nip:'19970822 202521 1 027',nama:"SEPTIAN DIPUTRA NUR'ALIM, S.Pd",gol:'IX',dinas:'Guru PJOK',peran:'Koordinator Sehat Fisik'},
+  {nip:'19720607 200604 2 005',nama:'NENI ENIN, S.Pd',gol:'Pembina, IV/a',dinas:'Guru BK',peran:'Koordinator Sehat Imunisasi'},
+  {nip:'19730430 200604 2 010',nama:'MULYANAH, S.Pd',gol:'Penata Tk I, III/d',dinas:'Guru BK',peran:'Koordinator Sehat Jiwa'},
+  {nip:'19840731 202421 2 005',nama:"ZAHROTUN NISA', S.Pd",gol:'IX',dinas:'Guru IPA',peran:'Koordinator Sehat Lingkungan'},
+  {nip:'19730507 200212 2 004',nama:'WIWIN HERWIDYASTARI, S.Pd',gol:'Pembina Tk I, IV/b',dinas:'Guru IPA',peran:'Anggota (Perwakilan Komite Sekolah)'}],
+ tugas:[
+  {jab:'Penanggung Jawab',uraian:'Menetapkan target program dalam RKS/RKAS, menyediakan sumber daya, serta memantau dan mengevaluasi kinerja tim.'},
+  {jab:'Ketua',uraian:'Memimpin dan mengoordinasikan tim, menyusun program kerja tahunan, serta melaporkan hasil kepada Kepala Sekolah.'},
+  {jab:'Sekretaris',uraian:'Mengelola administrasi, notulen, dokumentasi, dan laporan kegiatan.'},
+  {jab:'Koordinator Sehat Bergizi',uraian:'Pembiasaan gizi seimbang (Isi Piringku), pendampingan MBG, dan pembinaan kantin sehat.'},
+  {jab:'Koordinator Sehat Fisik',uraian:'Senam pagi, peregangan, kegiatan olahraga, dan Tes Kebugaran Siswa Indonesia (TKSI).'},
+  {jab:'Koordinator Sehat Imunisasi',uraian:'Pemetaan status imunisasi, pengelolaan ruang UKS/P3K, serta koordinasi dengan Puskesmas untuk pemeriksaan kesehatan berkala dan pemberian Tablet Tambah Darah.'},
+  {jab:'Koordinator Sehat Jiwa',uraian:'Pencegahan perundungan bersama TPPK, layanan konseling, dan konselor sebaya.'},
+  {jab:'Koordinator Sehat Lingkungan',uraian:'PHBS, cuci tangan pakai sabun, pengelolaan sampah, pemantauan jentik, dan Kawasan Tanpa Rokok, terintegrasi dengan Adiwiyata.'},
+  {jab:'Anggota (Perwakilan Komite Sekolah)',uraian:'Menjembatani tim dengan Komite Sekolah dan orang tua dalam sosialisasi program; menggalang dukungan secara sukarela tanpa pungutan; ikut memantau kantin, MBG, dan lingkungan sekolah; menyampaikan aspirasi orang tua kepada tim.'}]},
+
+/* ===== 3. Panitia & Juri LCC Arena 5 ===== */
+{...umum,tpl:'lcc',nama:'Panitia & Juri LCC Arena 5',kategori:'Kepanitiaan',nomor:'272/400.3.5.08/SMP5/XI/2026',tgl:'2026-11-01',kolDinas:'',kolPeran:'Tugas / Bidang Lomba',
+ penetap:'KEPALA UPT SATUAN PENDIDIKAN SMP NEGERI 5 TANGERANG',pembuka:'KEPALA UPT SATUAN PENDIDIKAN SMP NEGERI 5 TANGERANG,',ttdJab:'Plt. Kepala UPT Satuan Pendidikan\nSMP Negeri 5 Tangerang,',lampKet:'Keputusan Kepala UPT Satuan Pendidikan SMP Negeri 5 Tangerang',
+ judul:'PEMBENTUKAN PANITIA DAN JURI LOMBA CERDAS CERMAT (LCC ARENA 5) DALAM RANGKA PENGUATAN LITERASI DAN NUMERASI MELALUI DANA BOS KINERJA TAHUN 2026',
+ menimbang:['bahwa dalam rangka menumbuhkan semangat belajar, meningkatkan prestasi akademik, serta membina sikap sportif dan kerja sama peserta didik, perlu diselenggarakan Lomba Cerdas Cermat (LCC Arena 5) antarkelas bidang Matematika, IPA, Bahasa Indonesia, dan Bahasa Inggris sebagai upaya penguatan literasi membaca, literasi sains, dan numerasi peserta didik;',
+  'bahwa UPT Satuan Pendidikan SMP Negeri 5 Tangerang merupakan penerima Dana BOS Kinerja Tahun 2026 kategori satuan pendidikan dengan kinerja terbaik, yang salah satu komponen penggunaannya adalah penguatan literasi dan numerasi melalui kegiatan perlombaan literasi dan numerasi;',
+  'bahwa agar lomba sebagaimana dimaksud pada huruf a dapat terlaksana dengan tertib, lancar, dan objektif, perlu dibentuk panitia dan juri;',
+  'bahwa nama-nama yang tercantum dalam Lampiran Keputusan ini dipandang mampu dan memenuhi syarat untuk melaksanakan tugas sebagai panitia dan juri;',
+  'bahwa berdasarkan pertimbangan sebagaimana dimaksud pada huruf a, huruf b, huruf c, dan huruf d, perlu menetapkan Keputusan Kepala UPT Satuan Pendidikan SMP Negeri 5 Tangerang tentang Pembentukan Panitia dan Juri Lomba Cerdas Cermat (LCC Arena 5) dalam rangka Penguatan Literasi dan Numerasi melalui Dana BOS Kinerja Tahun 2026;'].join('\n'),
+ mengingat:['Undang-Undang Nomor 20 Tahun 2003 tentang Sistem Pendidikan Nasional;','Undang-Undang Nomor 20 Tahun 2023 tentang Aparatur Sipil Negara;',
+  'Peraturan Pemerintah Nomor 57 Tahun 2021 tentang Standar Nasional Pendidikan sebagaimana telah diubah dengan Peraturan Pemerintah Nomor 4 Tahun 2022;',
+  'Peraturan Menteri Pendidikan Nasional Nomor 39 Tahun 2008 tentang Pembinaan Kesiswaan;',
+  'Peraturan Menteri Pendidikan, Kebudayaan, Riset, dan Teknologi Nomor 12 Tahun 2024 tentang Kurikulum pada Pendidikan Anak Usia Dini, Jenjang Pendidikan Dasar, dan Jenjang Pendidikan Menengah;',
+  'Peraturan Menteri Pendidikan Dasar dan Menengah Nomor 8 Tahun 2026 tentang Petunjuk Teknis Pengelolaan Dana Bantuan Operasional Satuan Pendidikan;',
+  'Rencana Kegiatan dan Anggaran Sekolah (RKAS) UPT Satuan Pendidikan SMP Negeri 5 Tangerang Tahun Anggaran 2026.'].join('\n'),
+ diktum:['Membentuk Panitia dan Juri Lomba Cerdas Cermat (LCC Arena 5) dalam rangka Penguatan Literasi dan Numerasi melalui Dana BOS Kinerja Tahun 2026 dengan susunan sebagaimana tercantum dalam Lampiran yang merupakan bagian tidak terpisahkan dari Keputusan ini.',
+  'Panitia sebagaimana dimaksud dalam Diktum KESATU bertugas merencanakan, mempersiapkan, melaksanakan, dan melaporkan penyelenggaraan lomba, termasuk pelaksanaan babak penyisihan berbasis komputer (CBT) dan babak final.',
+  '> Juri sebagaimana dimaksud dalam Diktum KESATU bertugas menelaah soal, menilai jawaban peserta, menetapkan hasil pertandingan dan pemenang, serta memutuskan keberatan peserta secara objektif. Keputusan juri bersifat final.',
+  'Lomba dilaksanakan di UPT Satuan Pendidikan SMP Negeri 5 Tangerang pada:','> Babak penyisihan (CBT) : Selasa, 24 November 2026','> Babak final : Kamis, 26 November 2026',
+  'Panitia dan juri melaksanakan tugas dengan penuh tanggung jawab dan melaporkan hasil pelaksanaan kepada Kepala UPT Satuan Pendidikan SMP Negeri 5 Tangerang.',
+  'Segala biaya yang timbul akibat ditetapkannya Keputusan ini dibebankan pada Dana BOS Kinerja UPT Satuan Pendidikan SMP Negeri 5 Tangerang Tahun Anggaran 2026.',
+  'Keputusan ini mulai berlaku pada tanggal ditetapkan, dengan ketentuan apabila di kemudian hari terdapat kekeliruan akan diadakan perbaikan sebagaimana mestinya.'].join('\n'),
+ tembusan:'Kepala Dinas Pendidikan Kota Tangerang;\nYang bersangkutan;\nArsip.',
+ judulLamp1:'SUSUNAN PANITIA DAN JURI LOMBA CERDAS CERMAT (LCC ARENA 5)\nDALAM RANGKA PENGUATAN LITERASI DAN NUMERASI\nMELALUI DANA BOS KINERJA TAHUN 2026',
+ anggota:[{...PJ,grup:'A. PENANGGUNG JAWAB'},
+  {nip:'19811229 202221 1 003',nama:'MAULANA SAFARI, S.Kom',gol:'IX',peran:'Koordinator teknis dan operator aplikasi (CBT penyisihan dan LCC Arena 5 final)',grup:'B. PANITIA'},
+  {nip:'19720406 200604 2 020',nama:'HENNY APRILISTINI, S.Pd',gol:'Pembina, IV/a',peran:'Pembawa acara dan pembaca soal final',grup:'B. PANITIA'},
+  {nip:'19960908 202221 2 010',nama:'LIA AMATUN NUR, S.Or',gol:'IX',peran:'Pengawas ruang CBT dan pencatat waktu',grup:'B. PANITIA'},
+  {nip:'19840731 202421 2 005',nama:"ZAHROTUN NISA', S.Pd",gol:'IX',peran:'Pengawas ruang CBT dan operator layar tayang/buzzer',grup:'B. PANITIA'},
+  {nip:'20000120 202521 2 018',nama:'KHOIRUNNISA SALSABILA, S.Mat.',gol:'IX',peran:'Pengawas ruang CBT dan pencatat skor',grup:'B. PANITIA'},
+  {nip:'20000211 202521 2 016',nama:'AYU NUR SHOLIHAH, S.Pd.',gol:'IX',peran:'Sekretariat: administrasi, daftar hadir, berita acara, dan piagam',grup:'B. PANITIA'},
+  ...[['19720525 200604 2 021','JUHAIRIYAH, S.Pd','Penata Tk I, III/d','Matematika'],['19781118 200604 2 009','Hj. YESI RETNO NOVIYANTI, S.Si','Pembina, IV/a','Matematika'],['19911011 202421 2 020','OKTAVIANI DEWI PERTIWI, S.Pd','IX','Matematika'],
+      ['19730507 200212 2 004','WIWIN HERWIDYASTARI, S.Pd','Pembina Tk I, IV/b','IPA'],['19770614 200604 2 012','ENDANG SRI LESTARI, S.Pd','Pembina, IV/a','IPA'],['19920617 202521 1 030','MUHAMMAD ALI RIDHO, S.Pd','IX','IPA'],
+      ['19691031 199702 2 003','ISNA NURDIANA, S.Pd','Pembina Tk I, IV/b','Bahasa Indonesia'],['19691226 200212 2 004','Hj. ELITA MIRNAWATY, S.Pd','Pembina Tk I, IV/b','Bahasa Indonesia'],['19991125 202521 2 033','LENA NURLIYANA, S.Pd.','IX','Bahasa Indonesia'],
+      ['19711113 200212 2 001','Hj. MUFLIHAH, SS, M.Pd','Pembina, IV/a','Bahasa Inggris'],['19800525 202421 2 010','UMI ANISAH, S.Pd','IX','Bahasa Inggris'],['19940205 202421 2 017','LINA RIZKI HASYYATI, S.Pd','IX','Bahasa Inggris']]
+   .map(([nip,nama,gol,mp])=>({nip,nama,gol,peran:'Juri '+mp,grup:'C. JURI'}))],
+ tugas:[]},
+
+/* ===== 4. Tim Adiwiyata ===== */
+{...umum,tpl:'adiwiyata',nama:'Tim Adiwiyata',nomor:'400.3/……/SMPN 5/XI/2026',tgl:'',
+ judul:'PEMBENTUKAN TIM ADIWIYATA SMP NEGERI 5 TANGERANG TAHUN PELAJARAN 2026/2027',
+ menimbang:['bahwa SMP Negeri 5 Tangerang telah meraih predikat Sekolah Adiwiyata Mandiri pada tahun 2017 dan perlu mempertahankan serta mengembangkan Gerakan Peduli dan Berbudaya Lingkungan Hidup di Sekolah (PBLHS) secara berkelanjutan;',
+  'bahwa sebagai Sekolah Adiwiyata Mandiri, SMP Negeri 5 Tangerang perlu melaksanakan pembinaan dan pengimbasan Gerakan PBLHS kepada sekolah lain;',
+  'bahwa untuk melaksanakan hal sebagaimana dimaksud pada huruf a dan huruf b, perlu dibentuk Tim Adiwiyata;',
+  'bahwa berdasarkan pertimbangan sebagaimana dimaksud pada huruf a, huruf b, dan huruf c, perlu menetapkan Keputusan Kepala SMP Negeri 5 Tangerang tentang Pembentukan Tim Adiwiyata Tahun Pelajaran 2026/2027;'].join('\n'),
+ mengingat:['Undang-Undang Nomor 20 Tahun 2003 tentang Sistem Pendidikan Nasional;','Undang-Undang Nomor 18 Tahun 2008 tentang Pengelolaan Sampah;',
+  'Undang-Undang Nomor 32 Tahun 2009 tentang Perlindungan dan Pengelolaan Lingkungan Hidup;',
+  'Peraturan Pemerintah Nomor 22 Tahun 2021 tentang Penyelenggaraan Perlindungan dan Pengelolaan Lingkungan Hidup;',
+  'Peraturan Menteri Lingkungan Hidup dan Kehutanan Nomor P.52/MENLHK/SETJEN/KUM.1/9/2019 tentang Gerakan Peduli dan Berbudaya Lingkungan Hidup di Sekolah;',KURIKULUM+'.'].join('\n'),
+ diktum:['Membentuk Tim Adiwiyata SMP Negeri 5 Tangerang Tahun Pelajaran 2026/2027 dengan susunan sebagaimana tercantum dalam Lampiran I Keputusan ini.',
+  'Tim sebagaimana dimaksud pada Diktum KESATU melaksanakan Gerakan PBLHS yang meliputi kebijakan sekolah berwawasan lingkungan, pembelajaran berbasis lingkungan hidup, kegiatan partisipatif, dan pengelolaan sarana prasarana ramah lingkungan, dengan uraian tugas sebagaimana tercantum dalam Lampiran II Keputusan ini.',
+  'Tim melaporkan pelaksanaan tugasnya kepada Kepala Sekolah setiap akhir semester.',
+  'Keputusan ini berlaku sejak tanggal ditetapkan sampai dengan berakhirnya Tahun Pelajaran 2026/2027, dengan ketentuan apabila di kemudian hari terdapat kekeliruan akan diadakan perbaikan sebagaimana mestinya.'].join('\n'),
+ tembusan:'Kepala Dinas Pendidikan Kota Tangerang;\nKepala Dinas Lingkungan Hidup Kota Tangerang;\nYang bersangkutan untuk dilaksanakan;\nArsip.',
+ judulLamp1:'SUSUNAN TIM ADIWIYATA\nSMP NEGERI 5 TANGERANG TAHUN PELAJARAN 2026/2027',judulLamp2:'URAIAN TUGAS TIM ADIWIYATA\nSMP NEGERI 5 TANGERANG TAHUN PELAJARAN 2026/2027',
+ anggota:[PJ,
+  {nip:'19800525 202421 2 010',nama:'UMI ANISAH, S.Pd',gol:'IX',dinas:'Guru Bahasa Inggris / Duta Adiwiyata',peran:'Ketua'},
+  {nip:'20010209 202521 2 010',nama:'DEWI PURWANTI, S.Pd',gol:'IX',dinas:'Guru PJOK',peran:'Sekretaris'},
+  {nip:'19840731 202421 2 005',nama:"ZAHROTUN NISA', S.Pd",gol:'IX',dinas:'Guru IPA',peran:'Koordinator Pembelajaran Berbasis Lingkungan Hidup'},
+  {nip:'19801226 202421 2 007',nama:'MINARSIH, S.Pd',gol:'IX',dinas:'Guru IPS / Pembina PMR & Kesehatan Lingkungan Sekolah',peran:'Koordinator Kegiatan Partisipatif & Kader Adiwiyata'},
+  {nip:'20000211 202521 2 016',nama:'AYU NUR SHOLIHAH, S.Pd.',gol:'IX',dinas:'Guru Bahasa Indonesia / Duta Sanitasi Air',peran:'Koordinator Sarana Ramah Lingkungan'},
+  {nip:'20000408 202521 2 018',nama:'APRILIA WIJI ASTUTI, S.Pd',gol:'IX',dinas:'Guru BK / Duta Keanekaragaman Hayati & 3R',peran:'Koordinator Keanekaragaman Hayati & Pengelolaan Sampah'},
+  {nip:'20000120 202521 2 018',nama:'KHOIRUNNISA SALSABILA, S.Mat.',gol:'IX',dinas:'Guru Matematika / Duta Listrik',peran:'Anggota (Konservasi Energi)'}],
+ tugas:[
+  {jab:'Penanggung Jawab',uraian:'Menetapkan kebijakan sekolah berwawasan lingkungan dalam visi, misi, tujuan, dan Rencana Kerja Sekolah; menyediakan sarana prasarana pendukung; memantau dan mengevaluasi kinerja tim.'},
+  {jab:'Ketua',uraian:'Memimpin dan mengoordinasikan tim; menyusun program kerja Adiwiyata berdasarkan kajian lingkungan sekolah; mengoordinasikan pembinaan dan pengimbasan ke sekolah lain; melaporkan hasil kepada Kepala Sekolah.'},
+  {jab:'Sekretaris',uraian:'Mengelola administrasi, notulen, dan dokumentasi; menghimpun dan mengarsipkan bukti fisik keempat komponen Gerakan PBLHS; menyusun laporan kegiatan.'},
+  {jab:'Koordinator Pembelajaran Berbasis Lingkungan Hidup',uraian:'Mengintegrasikan materi lingkungan hidup ke dalam modul ajar dan kegiatan kokurikuler; mengembangkan bahan ajar, media, dan inovasi pembelajaran berbasis lingkungan.'},
+  {jab:'Koordinator Kegiatan Partisipatif & Kader Adiwiyata',uraian:'Membina kader Adiwiyata dari unsur peserta didik; menyelenggarakan aksi lingkungan dan peringatan hari lingkungan hidup; menjalin kemitraan dengan orang tua, masyarakat, dan instansi lingkungan hidup.'},
+  {jab:'Koordinator Sarana Ramah Lingkungan',uraian:'Memantau sanitasi, air bersih, drainase, dan ruang terbuka hijau; mendorong konservasi air dan kantin sehat ramah lingkungan.'},
+  {jab:'Koordinator Keanekaragaman Hayati & Pengelolaan Sampah',uraian:'Mengelola taman sekolah, tanaman obat keluarga, dan pembibitan; mengelola bank sampah, pengomposan, dan pengurangan plastik sekali pakai.'},
+  {jab:'Anggota (Konservasi Energi)',uraian:'Mengampanyekan hemat listrik dan air; memantau penggunaan energi di kelas dan ruang-ruang sekolah.'}]},
+
+/* ===== 5. Pengelola Laboratorium IPA ===== */
+{...umum,tpl:'labipa',nama:'Pengelola Laboratorium IPA',nomor:'400.3/……/SMPN 5/XI/2026',tgl:'',
+ judul:'PENGELOLA LABORATORIUM IPA SMP NEGERI 5 TANGERANG TAHUN PELAJARAN 2026/2027',
+ menimbang:'bahwa laboratorium IPA merupakan sarana penunjang pembelajaran untuk kegiatan praktikum dan pengembangan keterampilan proses sains peserta didik;\nbahwa agar laboratorium IPA dapat dimanfaatkan secara tertib, aman, dan optimal, perlu ditetapkan pengelola laboratorium IPA;\nbahwa berdasarkan pertimbangan sebagaimana dimaksud pada huruf a dan huruf b, perlu menetapkan Keputusan Kepala SMP Negeri 5 Tangerang tentang Pengelola Laboratorium IPA Tahun Pelajaran 2026/2027;',
+ mengingat:LAB_DASAR,
+ diktum:['Menetapkan Pengelola Laboratorium IPA SMP Negeri 5 Tangerang Tahun Pelajaran 2026/2027 dengan susunan sebagaimana tercantum dalam Lampiran I Keputusan ini.',
+  'Pengelola laboratorium sebagaimana dimaksud pada Diktum KESATU mempunyai tugas sebagaimana tercantum dalam Lampiran II Keputusan ini dan melaporkan pelaksanaannya kepada Kepala Sekolah setiap akhir semester.',
+  'Keputusan ini berlaku sejak tanggal ditetapkan sampai dengan berakhirnya Tahun Pelajaran 2026/2027, dengan ketentuan apabila di kemudian hari terdapat kekeliruan akan diadakan perbaikan sebagaimana mestinya.'].join('\n'),
+ tembusan:'Kepala Dinas Pendidikan Kota Tangerang;\nYang bersangkutan untuk dilaksanakan;\nArsip.',
+ judulLamp1:'SUSUNAN PENGELOLA LABORATORIUM IPA\nSMP NEGERI 5 TANGERANG TAHUN PELAJARAN 2026/2027',judulLamp2:'URAIAN TUGAS PENGELOLA LABORATORIUM IPA\nSMP NEGERI 5 TANGERANG TAHUN PELAJARAN 2026/2027',
+ anggota:[PJ,
+  {nip:'20000420 202521 2 024',nama:'REMA ANANDA, S.Pd',gol:'IX',dinas:'Guru Seni Budaya',peran:'Kepala Laboratorium IPA'},
+  {nip:'19720605 200604 2 016',nama:'ERNI SAOMI KURNIAWATY, M.Pd',gol:'Penata Tk I, III/d',dinas:'Guru IPA / Koordinator MGMP IPA',peran:'Koordinator Praktikum'},
+  {nip:'19730507 200212 2 004',nama:'WIWIN HERWIDYASTARI, S.Pd',gol:'Pembina Tk I, IV/b',dinas:'Guru IPA',peran:'Anggota (Guru IPA)'},
+  {nip:'19770614 200604 2 012',nama:'ENDANG SRI LESTARI, S.Pd',gol:'Pembina, IV/a',dinas:'Guru IPA',peran:'Anggota (Guru IPA)'},
+  {nip:'19810525 200604 2 012',nama:'DEVY SYLVYA, S.Pd',gol:'Pembina, IV/a',dinas:'Guru IPA',peran:'Anggota (Guru IPA)'},
+  {nip:'19840731 202421 2 005',nama:"ZAHROTUN NISA', S.Pd",gol:'IX',dinas:'Guru IPA',peran:'Anggota (Guru IPA)'},
+  {nip:'19920617 202521 1 030',nama:'MUHAMMAD ALI RIDHO, S.Pd',gol:'IX',dinas:'Guru IPA',peran:'Anggota (Guru IPA)'},
+  {nama:'……',nip:'',gol:'',dinas:'Tenaga Kependidikan',peran:'Laboran / Teknisi'}],
+ tugas:[
+  {jab:'Penanggung Jawab',uraian:'Menetapkan kebijakan pemanfaatan laboratorium; menyediakan sarana, alat, dan bahan; memantau dan mengevaluasi kinerja pengelola.'},
+  {jab:'Kepala Laboratorium IPA',uraian:'Menyusun program kerja, jadwal penggunaan, dan tata tertib laboratorium; mengelola inventaris alat dan bahan; menerapkan keselamatan dan kesehatan kerja (K3); menyusun laporan pemanfaatan laboratorium.'},
+  {jab:'Koordinator Praktikum',uraian:'Menyusun daftar dan panduan praktikum sesuai capaian pembelajaran IPA; mengoordinasikan jadwal praktikum guru IPA; mengevaluasi pelaksanaan praktikum.'},
+  {jab:'Anggota (Guru IPA)',uraian:'Merencanakan dan melaksanakan praktikum sesuai jadwal; membimbing peserta didik menerapkan tata tertib dan K3; mencatat penggunaan dan kerusakan alat serta pemakaian bahan.'},
+  {jab:'Laboran / Teknisi',uraian:'Menyiapkan alat dan bahan praktikum; merawat, membersihkan, dan menyimpan alat; mengelola penyimpanan bahan kimia secara aman; mencatat inventaris dan kondisi alat.'}]},
+
+/* ===== 6. Pengelola Laboratorium Komputer ===== */
+{...umum,tpl:'labkom',nama:'Pengelola Laboratorium Komputer',nomor:'400.3/……/SMPN 5/XI/2026',tgl:'',
+ judul:'PENGELOLA LABORATORIUM KOMPUTER SMP NEGERI 5 TANGERANG TAHUN PELAJARAN 2026/2027',
+ menimbang:'bahwa laboratorium komputer merupakan sarana penunjang pembelajaran TIK, Koding dan Kecerdasan Artifisial, serta pelaksanaan asesmen berbasis komputer;\nbahwa agar laboratorium komputer dapat dimanfaatkan secara tertib, aman, dan optimal, perlu ditetapkan pengelola laboratorium komputer;\nbahwa berdasarkan pertimbangan sebagaimana dimaksud pada huruf a dan huruf b, perlu menetapkan Keputusan Kepala SMP Negeri 5 Tangerang tentang Pengelola Laboratorium Komputer Tahun Pelajaran 2026/2027;',
+ mengingat:LAB_DASAR,
+ diktum:['Menetapkan Pengelola Laboratorium Komputer SMP Negeri 5 Tangerang Tahun Pelajaran 2026/2027 dengan susunan sebagaimana tercantum dalam Lampiran I Keputusan ini.',
+  'Pengelola laboratorium sebagaimana dimaksud pada Diktum KESATU mempunyai tugas sebagaimana tercantum dalam Lampiran II Keputusan ini dan melaporkan pelaksanaannya kepada Kepala Sekolah setiap akhir semester.',
+  'Keputusan ini berlaku sejak tanggal ditetapkan sampai dengan berakhirnya Tahun Pelajaran 2026/2027, dengan ketentuan apabila di kemudian hari terdapat kekeliruan akan diadakan perbaikan sebagaimana mestinya.'].join('\n'),
+ tembusan:'Kepala Dinas Pendidikan Kota Tangerang;\nYang bersangkutan untuk dilaksanakan;\nArsip.',
+ judulLamp1:'SUSUNAN PENGELOLA LABORATORIUM KOMPUTER\nSMP NEGERI 5 TANGERANG TAHUN PELAJARAN 2026/2027',judulLamp2:'URAIAN TUGAS PENGELOLA LABORATORIUM KOMPUTER\nSMP NEGERI 5 TANGERANG TAHUN PELAJARAN 2026/2027',
+ anggota:[PJ,
+  {nip:'19811229 202221 1 003',nama:'MAULANA SAFARI, S.Kom',gol:'IX',dinas:'Guru TIK',peran:'Kepala Laboratorium Komputer'},
+  {nip:'19961108 202221 2 005',nama:'MONALISA, S.Kom',gol:'IX',dinas:'Guru TIK / Koordinator MGMP TIK',peran:'Anggota (Guru TIK)'},
+  {nip:'19831007 202521 2 017',nama:'IKA KUSUMAWATI, S.Kom.',gol:'IX',dinas:'Guru TIK',peran:'Anggota (Guru TIK)'},
+  {nip:'19850223 202521 2 103',nama:'YUYUN YUSRIAH, S.Kom.',gol:'IX',dinas:'Guru TIK',peran:'Anggota (Guru TIK)'},
+  {nip:'20020415 202521 2 000',nama:'CATERINA VINANTI, S.Kom',gol:'–',dinas:'Operator Sekolah',peran:'Teknisi'}],
+ tugas:[
+  {jab:'Penanggung Jawab',uraian:'Menetapkan kebijakan pemanfaatan laboratorium; menyediakan perangkat dan jaringan; memantau dan mengevaluasi kinerja pengelola.'},
+  {jab:'Kepala Laboratorium Komputer',uraian:'Menyusun program kerja, jadwal penggunaan, dan tata tertib laboratorium; mengelola inventaris perangkat keras dan lunak; menyiapkan laboratorium untuk ANBK dan asesmen berbasis komputer; menyusun laporan pemanfaatan laboratorium.'},
+  {jab:'Anggota (Guru TIK)',uraian:'Melaksanakan pembelajaran praktik sesuai jadwal; membimbing peserta didik menggunakan perangkat secara aman dan bertanggung jawab; mencatat penggunaan dan kerusakan perangkat.'},
+  {jab:'Teknisi',uraian:'Memasang dan merawat perangkat keras, perangkat lunak, dan jaringan internet; menangani gangguan teknis; melakukan pencadangan data dan pembaruan sistem secara berkala.'}]}
+]}
+
 /* ============================ ROUTER ============================ */
 /* ===== Analisis Beban Kerja (ABK) — Permendikdasmen 11/2025 & Kepmendikdasmen 221/P/2025 ===== */
 const ABK_MIN=24,ABK_MAX=40;
@@ -2865,7 +3265,7 @@ function gABK(){const R=abkData();const Z=abkRingkas(R);const M=abkMapel();
 const NAV=[
   ['Beranda',[['dashboard','◧','Dasbor']],'#9fd4c0'],
   ['Data Sekolah',[['siswa','◔','Siswa'],['guru','◑','Guru & DUK'],['kelas','▤','Kelas & Rombel'],['mapel','▦','Mata Pelajaran']],'#8ec5ff'],
-  ['Tugas & Jadwal',[['tugas','⇄','Pembagian Tugas'],['jadwal','▥','Jadwal Pelajaran'],['tt','✦','Tugas Tambahan & Kepanitiaan'],['abk','⚖','Analisis Beban Kerja'],['surat','✉','Surat Tugas'],['pengganti','↺','Guru Pengganti']],'#f5c97a'],
+  ['Tugas & Jadwal',[['tugas','⇄','Pembagian Tugas'],['jadwal','▥','Jadwal Pelajaran'],['tt','✦','Tugas Tambahan & Kepanitiaan'],['abk','⚖','Analisis Beban Kerja'],['surat','✉','Surat Tugas'],['sk','§','SK Tim & Kepanitiaan'],['pengganti','↺','Guru Pengganti']],'#f5c97a'],
   ['Penilaian',[['nilai','✎','Nilai & Leger'],['rapor','✍','Nilai Rapor Kelas IX'],['ujian','▣','Perangkat Ujian'],['rpel','❏','Rapor Pelengkap']],'#f4a3a3'],
   ['Supervisi & Mutu',[['supervisi','★','Supervisi & Kinerja'],['perangkat','☑','Perangkat Ajar']],'#c7b3f5'],
   ['Kegiatan & Program',[['agenda','◷','Kalender Akademik'],['kokurikuler','✿','Kokurikuler'],['proker','◎','Program Kerja']],'#a8dba0'],
@@ -3000,7 +3400,7 @@ function vRpel(){const U=UI.rpl=UI.rpl||{};const t=rpTingkat();const kl=rpKelas(
   <div class="bar">${selT}${selK}<button class="btn" onclick="rpSetModal()">⚙ Pengaturan</button><label class="btn" style="cursor:pointer">📥 Impor Excel wali kelas<input type="file" accept=".xlsx,.xls" style="display:none" onchange="rpImpor(this.files[0]);this.value=''"></label><span class="sp"></span><button class="btn p" onclick="rpelAksi('cetakK')">🖨 Cetak satu kelas</button><button class="btn" onclick="rpelAksi('zipK')">⬇ Simpan satu kelas (ZIP, PDF per anak)</button><button class="btn" onclick="rpelAksi('pdfK')">⬇ Simpan satu kelas (1 PDF)</button></div>
   <div class="tw"><table><thead><tr><th>No</th><th>NISN / NIS</th><th>Nama</th><th>L/P</th><th>Data tambahan</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="6" class="empty">Belum ada siswa aktif.</td></tr>'}</tbody></table></div>`}
 
-const VIEWS={rpel:vRpel,abk:vABK,surat:vSurat,cetak:vCetak,panitia:()=>guruList().length?ttPanitia():'<div class="card empty">Tambahkan data <a href="#guru">Guru</a> dulu.</div>',rapor:vRapor,ujian:vUjian,tt:vTT,dashboard:vDashboard,siswa:vSiswa,guru:vGuru,kelas:vKelas,mapel:vMapel,tugas:vTugas,jadwal:vJadwal,nilai:vNilai,supervisi:vSupervisi,perangkat:vPerangkat,agenda:()=>crudView('agenda'),kokurikuler:()=>`<div class="card small" style="background:var(--pri2);border-color:#cfe2da">Kokurikuler (pengganti P5) dapat berupa pembelajaran kolaboratif lintas disiplin, Gerakan 7 Kebiasaan Anak Indonesia Hebat, atau cara lain, dan dirancang untuk mengembangkan 8 dimensi profil lulusan.</div>`+crudView('kokurikuler'),proker:()=>crudView('proker'),pengganti:()=>crudView('pengganti'),pengaturan:vPengaturan};
+const VIEWS={rpel:vRpel,abk:vABK,surat:vSurat,sk:vSK,cetak:vCetak,panitia:()=>guruList().length?ttPanitia():'<div class="card empty">Tambahkan data <a href="#guru">Guru</a> dulu.</div>',rapor:vRapor,ujian:vUjian,tt:vTT,dashboard:vDashboard,siswa:vSiswa,guru:vGuru,kelas:vKelas,mapel:vMapel,tugas:vTugas,jadwal:vJadwal,nilai:vNilai,supervisi:vSupervisi,perangkat:vPerangkat,agenda:()=>crudView('agenda'),kokurikuler:()=>`<div class="card small" style="background:var(--pri2);border-color:#cfe2da">Kokurikuler (pengganti P5) dapat berupa pembelajaran kolaboratif lintas disiplin, Gerakan 7 Kebiasaan Anak Indonesia Hebat, atau cara lain, dan dirancang untuk mengembangkan 8 dimensi profil lulusan.</div>`+crudView('kokurikuler'),proker:()=>crudView('proker'),pengganti:()=>crudView('pengganti'),pengaturan:vPengaturan};
 function route(){const h=location.hash.replace('#','');if(h==='panitia'){UI.tab=UI.tab||{};UI.tab.tt='kelola';UI.grpK='Kepanitiaan';history.replaceState(null,'','#tt');return 'tt'}return VIEWS[h]?h:'dashboard'}
 function render(){
   setTimeout(undoBtns,0);
