@@ -813,7 +813,7 @@ function gDaftarKelas(kid){const k=get('kelas',kid);if(!k)return [''];const ss=s
    <table style="width:auto;min-width:190px"><thead><tr><th colspan="2">Agama</th></tr></thead><tbody>${ag.map(a=>`<tr><td>${esc(a)}</td><td class="c" style="width:50px">${x.ag[a]||0}</td></tr>`).join('')}<tr><td><b>Jumlah</b></td><td class="c"><b>${x.n}</b></td></tr></tbody></table>
   </div>
   <div class="ttd2" style="page-break-inside:avoid"><div>Mengetahui,<br>Kepala Sekolah,${ttdBlok(TTDON())}<u>${esc(S.cfg.kepsek||'')}</u><br>NIP. ${esc(S.cfg.nipKepsek||'')}</div>
-  <div>${esc(S.cfg.tempatSK||'')}, ${tglIndo()}<br>Wali Kelas ${esc(k.nama)},<br><br><br><br><b><u>${esc(wali?.nama||'…………………………')}</u></b><br>NIP. ${esc(wali?.nip||'')}</div></div>`]}
+  <div>${esc(S.cfg.tempatSK||'')}, ${tglIndo()}<br>Wali Kelas ${esc(k.nama)},<br><br><br><br><u>${esc(wali?.nama||'…………………………')}</u><br>NIP. ${esc(wali?.nip||'')}</div></div>`]}
 function rekapSekolahTabel(R,doc){const AG=R.agama.filter(a=>(R.all.ag[a]||0)>0||!['Belum diisi'].includes(a));const tk=[7,8,9];const c=doc?'c':'n';
   const tr=(lbl,x,b)=>`<tr${b?' style="font-weight:700'+(doc?'':';background:#faf9f5')+'"':''}>`.replace('<tr','<tr class="rkS"');
   const jk=`<table${doc?'':' style="min-width:320px"'}><thead><tr><th rowspan="2">Tingkat</th><th rowspan="2">Rombel</th><th colspan="3">Jenis Kelamin</th></tr><tr><th>Laki-laki</th><th>Perempuan</th><th>Jumlah</th></tr></thead><tbody>
@@ -972,7 +972,7 @@ const targetJP=gid=>all('tugas').filter(t=>t.guruId===gid&&get('kelas',t.kelasId
 const waliDari=gid=>kelasList().filter(k=>k.waliId===gid).map(k=>k.nama).join(', ');
 const semTxt=()=>`Semester ${S.cfg.semester==='Genap'?'2':'1'} – Tahun Pelajaran ${String(S.cfg.tahun||'').replace('/','-')}`;
 const SEKOLAH=()=>String(S.cfg.sekolah||'').toUpperCase();
-const ttdDua=(kanan,namaK,nipK)=>`<div class="ttd2" style="page-break-inside:avoid;margin-top:14px"><div>Mengetahui,<br>Kepala Sekolah,${ttdBlok(TTDON())}<u>${esc(S.cfg.kepsek||'')}</u><br>NIP. ${esc(S.cfg.nipKepsek||'')}</div><div>${esc(S.cfg.tempatSK||'')}, ……………………<br>${kanan}<br><br><br><br><b><u>${esc(namaK||'……………………………')}</u></b><br>NIP. ${esc(nipK||'……………………')}</div></div>`;
+const ttdDua=(kanan,namaK,nipK)=>`<div class="ttd2" style="page-break-inside:avoid;margin-top:14px"><div>Mengetahui,<br>Kepala Sekolah,${ttdBlok(TTDON())}<u>${esc(S.cfg.kepsek||'')}</u><br>NIP. ${esc(S.cfg.nipKepsek||'')}</div><div>${esc(S.cfg.tempatSK||'')}, ……………………<br>${kanan}<br><br><br><br><u>${esc(namaK||'……………………………')}</u><br>NIP. ${esc(nipK||'……………………')}</div></div>`;
 
 /* ---- tab Rekap JP Guru ---- */
 function rekapJPData(){const c=S.cfg;return guruJadwalList().map(g=>{const m=petaGuru(g.id);const per=c.hari.map((h,hi)=>{let n=0;for(let j=1;j<=(+c.jam[h]||0);j++)n+=(m[hi+'-'+j]||[]).length;return n});const tot=per.reduce((a,b)=>a+b,0);const tg=targetJP(g.id);return {g,per,tot,tg,cek:tot===tg?'OK':tot<tg?'Kurang '+(tg-tot):'Lebih '+(tot-tg)}})}
@@ -1872,7 +1872,7 @@ function gIsiSK(){const c=S.cfg;const T=SKT();const tp=TPd();const td='style="ve
   <table class="nb" style="font-size:12.5px">${blok('Menimbang',list(lines(T.menimbang),i=>String.fromCharCode(97+i)+'.'))}<tr><td colspan="3" style="height:6px"></td></tr>${blok('Mengingat',list(lines(T.mengingat),i=>(i+1)+'.'))}</table>
   <p class="c" style="font-weight:700;margin:10px 0 6px;letter-spacing:2px">MEMUTUSKAN</p>
   <table class="nb" style="font-size:12.5px"><tr><td ${td} style="width:96px">Menetapkan</td><td ${td} style="width:10px">:</td><td ${td} style="text-align:justify">${esc(T.menetapkan.replace(/\{TP\}/g,tp))}</td></tr>${lines(T.diktum).map((x,i)=>`<tr><td ${td}>${ORD[i]||(i+1)}</td><td ${td}>:</td><td ${td} style="text-align:justify">${esc(x.replace(/\{TP\}/g,tp))}</td></tr>`).join('')}</table>
-  <div style="display:flex;justify-content:space-between;margin-top:16px;page-break-inside:avoid"><div><br>Mengetahui :<br>Pengawas Pembina,<br><br><br><br><b><u>${esc(T.pengawas)}</u></b><br>NIP. ${esc(T.nipPengawas)}</div><div><table class="nb"><tr><td style="padding:0">Ditetapkan di</td><td style="padding:0 4px">:</td><td style="padding:0">${esc(c.tempatSK||'')}</td></tr><tr><td style="padding:0">Pada tanggal</td><td style="padding:0 4px">:</td><td style="padding:0">${esc(c.tglSK||'')}</td></tr></table>Kepala Sekolah,${ttdBlok(TTDON())}<u>${esc(c.kepsek||'')}</u><br>NIP. ${esc(c.nipKepsek||'')}</div></div>
+  <div style="display:flex;justify-content:space-between;margin-top:16px;page-break-inside:avoid"><div><br>Mengetahui :<br>Pengawas Pembina,<br><br><br><br><u>${esc(T.pengawas)}</u><br>NIP. ${esc(T.nipPengawas)}</div><div><table class="nb"><tr><td style="padding:0">Ditetapkan di</td><td style="padding:0 4px">:</td><td style="padding:0">${esc(c.tempatSK||'')}</td></tr><tr><td style="padding:0">Pada tanggal</td><td style="padding:0 4px">:</td><td style="padding:0">${esc(c.tglSK||'')}</td></tr></table>Kepala Sekolah,${ttdBlok(TTDON())}<u>${esc(c.kepsek||'')}</u><br>NIP. ${esc(c.nipKepsek||'')}</div></div>
   <div style="margin-top:14px;font-size:12px;page-break-inside:avoid">Tembusan:<br>${lines(T.tembusan).map((x,i)=>`${i+1}. ${esc(x)}`).join('<br>')}</div>`}
 const golTxt=g=>String(g.gol||'').replace(/^PPPK\s*/,'')||'-';
 function gLampI(){const kl=kelasList();const T=[7,8,9].map(t=>kl.filter(k=>+k.tingkat===t)).filter(x=>x.length);
@@ -2136,7 +2136,7 @@ function gBA(u,P,no,sesi){const r=ruangInfo(u,P).find(x=>x.no===no);const j=sesi
   <table class="nb" style="font-size:13px">${[['1.','Ruang',r.no],['2.','Mata Pelajaran',mp],['3.','Kelas',ks.map(k=>k.nama).join(' dan ')],['4.','Jumlah peserta seharusnya',r.ps.length+' orang'],['5.','Jumlah peserta hadir',ab.length?(r.ps.length-ab.length)+' orang':'……… orang'],['6.','Jumlah peserta tidak hadir',ab.length?ab.length+' orang':'……… orang'],['7.','No. peserta tidak hadir',ab.length?ab.map(a=>a.no).join(', '):'……………………………………………………………']].map(x=>`<tr><td style="width:24px;font-size:13px">${x[0]}</td><td style="width:210px;font-size:13px">${x[1]}</td><td style="width:10px;font-size:13px">:</td><td style="font-size:13px">${esc(x[2])}</td></tr>`).join('')}
   <tr><td style="font-size:13px">8.</td><td colspan="3" style="font-size:13px">Catatan selama pelaksanaan ujian:</td></tr><tr><td></td><td colspan="3"><div style="border-bottom:1px dotted #000;height:22px"></div><div style="border-bottom:1px dotted #000;height:22px"></div><div style="border-bottom:1px dotted #000;height:22px"></div></td></tr></table>
   <p style="font-size:13px">Demikian berita acara ini dibuat dengan sesungguhnya.</p>
-  <div class="ttd2" style="font-size:13px"><div>Mengetahui,<br>Ketua Panitia,<br><br><br><br><b><u>${esc(kt?.nama||'(…………………………)')}</u></b><br>NIP. ${esc(kt?.nip||'')}</div><div>${esc(u.set.kota||'')}, ${esc(tglL(j.tanggal)||'')}<br>Pengawas Ruang,<br><br><br><br><b><u>${esc(pg?.nama||'(…………………………)')}</u></b><br>NIP. ${esc(pg?.nip||'')}</div></div>`]}
+  <div class="ttd2" style="font-size:13px"><div>Mengetahui,<br>Ketua Panitia,<br><br><br><br><u>${esc(kt?.nama||'(…………………………)')}</u><br>NIP. ${esc(kt?.nip||'')}</div><div>${esc(u.set.kota||'')}, ${esc(tglL(j.tanggal)||'')}<br>Pengawas Ruang,<br><br><br><br><u>${esc(pg?.nama||'(…………………………)')}</u><br>NIP. ${esc(pg?.nip||'')}</div></div>`]}
 function gDHPengawas(u,P,sesi,serah){const j=sesiList(u).find(x=>x.sesi===sesi);if(!j)return [''];const R=ruangInfo(u,P).filter(r=>[r.kKiri,r.kKanan].some(k=>k&&mapelSesi(j,k.tingkat)));const ms=[...new Set([j.m7,j.m8,j.m9].filter(Boolean))].join(' / ');
   return [hdr(u,serah?'SERAH TERIMA NASKAH SOAL':'DAFTAR HADIR PENGAWAS')+`<table class="nb" style="width:auto;font-size:13px"><tr><td>Hari/Tanggal</td><td>: ${esc(hariOf(j.tanggal)+', '+tglL(j.tanggal))}</td></tr><tr><td>Jam</td><td>: ${esc(j.jam)}</td></tr><tr><td>Mata Pelajaran</td><td>: ${esc(ms)}</td></tr></table>
   <table><thead><tr><th>No</th><th>Nama Pengawas</th><th>Ruang</th>${serah?'<th>TTD Terima</th><th>TTD Kembali</th>':'<th colspan="2">Tanda Tangan</th>'}</tr></thead><tbody>${R.map((r,i)=>{const g=get('guru',pengawasOf(u,sesi,r.no));return `<tr><td class="c">${i+1}</td><td style="height:23px">${esc(g?.nama||'')}</td><td class="c">${r.no}</td><td style="width:105px">${serah?'':(i%2===0?(i+1)+'. ………':'')}</td><td style="width:105px">${serah?'':(i%2?(i+1)+'. ………':'')}</td></tr>`}).join('')}</tbody></table>`+(serah?`<div class="ttd"><div>${esc(u.set.kota||S.cfg.tempatSK||'')}, ……………………………<br>Kepala Sekolah,${ttdBlok(TTDON())}<u>${esc(S.cfg.kepsek||'')}</u><br>NIP. ${esc(S.cfg.nipKepsek||'')}</div></div>`:ttdKS(u))]}
@@ -2892,15 +2892,15 @@ async function rpImgs(){if(_rpImg)return _rpImg;const ld=async u=>{try{const r=a
   _rpImg={kota:await ld('rp_logo_kota.jpg'),smp:await ld('rp_logo_smp.jpg')};return _rpImg}
 function pdfRpel(doc,s,I,first){const C=RPC();const v=rpVal(s);const W=215;const NM=String(s.nama||'').toUpperCase();const k=get('kelas',s.kelasId);
   const F=(st,sz)=>{doc.setFont('helvetica',st);doc.setFontSize(sz)};const T=(t,x,y,o)=>doc.text(String(t==null?'':t),x,y,o||{});const CT=(t,y)=>T(t,W/2,y,{align:'center'});
-  const dots=(x1,x2,y)=>{doc.setLineDashPattern([.4,.8],0);doc.setLineWidth(.2);doc.line(x1,y,x2,y);doc.setLineDashPattern([],0)};
+  const LW=.3;const grid=(xs,ys,inner)=>{doc.setLineDashPattern([],0);doc.setLineWidth(LW);ys.forEach(y=>doc.line(xs[0],y,xs[xs.length-1],y));doc.line(xs[0],ys[0],xs[0],ys[ys.length-1]);doc.line(xs[xs.length-1],ys[0],xs[xs.length-1],ys[ys.length-1]);inner.forEach(([x,y1])=>doc.line(x,y1,x,ys[ys.length-1]))};const dots=(x1,x2,y)=>{doc.setLineDashPattern([.4,.8],0);doc.setLineWidth(.2);doc.line(x1,y,x2,y);doc.setLineDashPattern([],0)};
   const isi=(t,x,y,w,lh)=>{const L=doc.splitTextToSize(String(t||''),w);L.forEach((ln,i)=>T(ln,x,y+i*lh));return Math.max(1,L.length)};
   doc.setTextColor(0);doc.setDrawColor(0);
   /* --- halaman 1: sampul --- */
   if(!first)doc.addPage([215,330],'p');
   if(I.kota){const w=46,h=w*I.kota.h/I.kota.w;doc.addImage(I.kota.src,'JPEG',(W-w)/2,24,w,h,'rpkota','FAST')}
   F('bold',17);CT('SEKOLAH MENENGAH PERTAMA',96);CT('( SMP )',104);
-  if(I.smp){const w=50,h=w*I.smp.h/I.smp.w;doc.addImage(I.smp.src,'JPEG',(W-w)/2,122,w,h,'rpsmp','FAST')}
-  F('bold',12.5);CT('Nama Peserta Didik',196);doc.setLineWidth(.35);doc.rect(47,200,121,11);
+  if(I.smp){const w=50,h=50;doc.addImage(I.smp.src,'JPEG',(W-w)/2,122,w,h,'rpsmp','FAST')}
+  F('bold',12.5);CT('Nama Peserta Didik',196);doc.setLineWidth(LW);doc.rect(47,200,121,11);
   let fs=13;F('bold',fs);while(doc.getTextWidth(NM)>116&&fs>8){fs-=.5;doc.setFontSize(fs)}CT(NM,207.6);
   F('bold',12.5);CT('NISN / NIS',228);doc.rect(52,232,111,11);F('bold',13);CT(`${s.nisn||'-'} / ${s.nis||'-'}`,239.6);
   F('bold',13.5);doc.splitTextToSize(C.kemen,150).forEach((ln,i)=>CT(ln,282+i*7));CT('REPUBLIK INDONESIA',282+doc.splitTextToSize(C.kemen,150).length*7+5);
@@ -2920,25 +2920,24 @@ function pdfRpel(doc,s,I,first){const C=RPC();const v=rpVal(s);const W=215;const
   row(13,'Alamat Orang Tua',v.alamatOrtu);row('','Nomor Telepon Rumah',v.telpOrtu,true);
   row(14,'Pekerjaan Orang Tua','');row('','a. Ayah',v.kerjaAyah,true);row('','b. Ibu',v.kerjaIbu,true);
   row(15,'Nama Wali Peserta Didik',v.wali);row(16,'Alamat Wali Peserta Didik',v.alamatWali);row('','Nomor Telepon Rumah',v.telpWali,true);row(17,'Pekerjaan Wali Peserta Didik',v.kerjaWali);
-  y=y+10;doc.setLineWidth(.3);doc.rect(52,y,30,40);F('normal',8.5);T('Pas foto',67,y+18,{align:'center'});T('3 x 4',67,y+23,{align:'center'});
+  y=y+10;doc.setLineWidth(LW);doc.rect(52,y,30,40);F('normal',8.5);T('Pas foto',67,y+18,{align:'center'});T('3 x 4',67,y+23,{align:'center'});
   F('normal',11);T(`${C.tempatTtd}, ${C.tglTtd}`,118,y+2);T('Kepala Sekolah,',118,y+8);
-  const KS=C.kepsek||S.cfg.kepsek||'',KN=C.nip||(C.kepsek?'':S.cfg.nipKepsek)||'';if(KS){F('bold',11);T(KS,118,y+34);const tw=doc.getTextWidth(KS);doc.setLineWidth(.25);doc.line(118,y+35,118+tw,y+35);F('normal',11);T('NIP. '+KN,118,y+40)}else{dots(118,185,y+34);T('NIP.',118,y+40)}
+  const KG=kepsekGuru();const KS=C.kepsek||KG?.nama||S.cfg.kepsek||'';const KG2=C.kepsek?(guruList().find(g=>nkey(g.nama)===nkey(C.kepsek))||null):KG;const KN=C.nip||KG2?.nip||(C.kepsek?'':S.cfg.nipKepsek)||'';if(KS){F('normal',11);T(KS,118,y+34);const tw=doc.getTextWidth(KS);doc.setLineWidth(.25);doc.line(118,y+35,118+tw,y+35);F('normal',11);T('NIP. '+KN,118,y+40)}else{dots(118,185,y+34);T('NIP.',118,y+40)}
   /* --- halaman 4: pindah keluar --- */
   doc.addPage([215,330],'p');F('bold',12.5);CT('KETERANGAN PINDAH SEKOLAH',22);F('normal',11);T('Nama Peserta Didik',18,36);T(':',58,36);F('bold',11);T(NM,62,36);
-  let X=[18,40,64,104,197],Y0=44;doc.setLineWidth(.35);F('bold',10);
-  doc.rect(X[0],Y0,X[4]-X[0],7);CT('KELUAR',Y0+5);const Hh=16;doc.rect(X[0],Y0+7,X[4]-X[0],Hh);for(let i=1;i<4;i++)doc.line(X[i],Y0+7,X[i],Y0+7+Hh);
+  let X=[18,40,64,104,197],Y0=44;F('bold',10);CT('KELUAR',Y0+5);const Hh=16;
   [['Tanggal'],['Kelas yang','ditinggalkan'],['Sebab-sebab Keluar','atau Atas Permintaan','(Tertulis)'],['Tanda Tangan Kepala Sekolah,','Stempel Sekolah, dan Tanda Tangan','Orang Tua/Wali']].forEach((L,i)=>{const cx=(X[i]+X[i+1])/2;L.forEach((t,j)=>T(t,cx,Y0+7+Hh/2-(L.length-1)*2+1+j*4.2,{align:'center'}))});
   F('normal',10);let ry=Y0+7+Hh;const RH=80;
-  for(let r=0;r<3;r++){doc.rect(X[0],ry,X[4]-X[0],RH);for(let i=1;i<4;i++)doc.line(X[i],ry,X[i],ry+RH);const x=X[3]+5,x2=X[4]-5;
-    dots(x,x2,ry+9);T('Kepala Sekolah,',x,ry+15);dots(x,x2,ry+40);T('NIP.',x,ry+45);T('Orang Tua/Wali,',x,ry+54);dots(x,x2,ry+78);ry+=RH}
+  const YS4=[Y0,Y0+7,Y0+7+Hh];for(let r=0;r<3;r++){YS4.push(ry+RH);const x=X[3]+5,x2=X[4]-5;
+    dots(x,x2,ry+9);T('Kepala Sekolah,',x,ry+15);dots(x,x2,ry+40);T('NIP.',x,ry+45);T('Orang Tua/Wali,',x,ry+54);dots(x,x2,ry+74);ry+=RH}grid(X,YS4,[1,2,3].map(i=>[X[i],Y0+7]));
   /* --- halaman 5: pindah masuk --- */
   doc.addPage([215,330],'p');F('bold',12.5);CT('KETERANGAN PINDAH SEKOLAH',22);F('normal',11);T('Nama Peserta Didik',18,36);T(':',58,36);F('bold',11);T(NM,62,36);
-  X=[18,29,86,134,197];doc.setLineWidth(.35);F('bold',10);doc.rect(X[0],Y0,X[4]-X[0],8);doc.line(X[1],Y0,X[1],Y0+8);T('NO',(X[0]+X[1])/2,Y0+5.5,{align:'center'});T('MASUK',(X[1]+X[4])/2,Y0+5.5,{align:'center'});
+  X=[18,29,86,134,197];F('bold',10);T('NO',(X[0]+X[1])/2,Y0+5.5,{align:'center'});T('MASUK',(X[1]+X[4])/2,Y0+5.5,{align:'center'});
   F('normal',10);ry=Y0+8;const RM=82;
-  for(let r=0;r<3;r++){doc.rect(X[0],ry,X[4]-X[0],RM);for(let i=1;i<4;i++)doc.line(X[i],ry,X[i],ry+RM);
+  const YS5=[Y0,Y0+8];for(let r=0;r<3;r++){YS5.push(ry+RM);
     const it=[['1.','Nama Siswa'],['2.','Nomor Induk'],['3.','Nama Sekolah'],['4.','Masuk di Sekolah ini :'],['','a. Tanggal'],['','b. Di Kelas'],['5.','Tahun Pelajaran']];
     it.forEach(([n,l],i)=>{const yy=ry+9+i*9;if(n)T(n,X[0]+3,yy);T(l,X[1]+3,yy);if(i!==3)dots(X[2]+3,X[3]-3,yy+1)});
-    const x=X[3]+5,x2=X[4]-5;dots(x,x2,ry+9);T('Kepala Sekolah,',x,ry+15);dots(x,x2,ry+44);T('NIP.',x,ry+49);ry+=RM}
+    const x=X[3]+5,x2=X[4]-5;dots(x,x2,ry+9);T('Kepala Sekolah,',x,ry+15);dots(x,x2,ry+44);T('NIP.',x,ry+49);ry+=RM}grid(X,YS5,[[X[1],Y0],[X[2],Y0+8],[X[3],Y0+8]]);
 }
 async function rpelBuf(list){await loadJsPDF();const I=await rpImgs();const {jsPDF}=window.jspdf;const doc=new jsPDF({unit:'mm',format:[215,330],compress:true});list.forEach((s,i)=>pdfRpel(doc,s,I,i===0));return doc.output('arraybuffer')}
 function rpCetakBuf(buf){const u=URL.createObjectURL(new Blob([buf],{type:'application/pdf'}));
@@ -2963,7 +2962,7 @@ function rpEdit(id){const s=get('siswa',id);if(!s)return;const v=rpVal(s);
 function rpSetF(id,k,val){const s=get('siswa',id);if(!s)return;const o=clone(s);o.rp=Object.assign({},o.rp||{});o.rp[k]=String(val).trim();put('siswa',o,{silent:true});toast('Tersimpan')}
 function rpKosongkan(id){confirmBox('Kosongkan semua isian manual rapor pelengkap siswa ini? Data dari Dapodik tetap. Bisa dibatalkan dengan ↶ Urungkan.',()=>{const s=get('siswa',id);if(!s)return;const o=clone(s);delete o.rp;put('siswa',o);toast('Isian dikosongkan');setTimeout(()=>rpEdit(id),50)},'Kosongkan')}
 function rpSetModal(){const C=RPC();const f=(k,l)=>`<label>${esc(l)}<input id="rpc_${k}" value="${esc(C[k]??'')}"></label>`;
-  openModal(`<h2>Pengaturan Rapor Pelengkap</h2><div class="form">${f('tglDiterima','Tanggal diterima di sekolah ini')}${f('tempatTtd','Tempat tanda tangan')}${f('tglTtd','Tanggal tanda tangan')}${f('kepsek','Nama kepala sekolah (kosong = ikut Pengaturan sekolah)')}${f('nip','NIP kepala sekolah')}${f('sekolah','Nama sekolah')}${f('npsn','NPSN')}${f('nss','NIS/NSS/NDS')}${f('alamat','Alamat sekolah')}${f('kel','Kelurahan / Desa')}${f('kec','Kecamatan')}${f('kota','Kota/Kabupaten')}${f('prov','Provinsi')}${f('web','Website')}${f('email','E-mail')}${f('kemen','Nama kementerian (sampul)')}</div>
+  openModal(`<h2>Pengaturan Rapor Pelengkap</h2><div class="form">${f('tglDiterima','Tanggal diterima di sekolah ini')}${f('tempatTtd','Tempat tanda tangan')}${f('tglTtd','Tanggal tanda tangan')}${f('kepsek','Nama kepala sekolah (kosong = ambil dari DUK)')}${f('nip','NIP kepala sekolah (kosong = ambil dari DUK)')}${f('sekolah','Nama sekolah')}${f('npsn','NPSN')}${f('nss','NIS/NSS/NDS')}${f('alamat','Alamat sekolah')}${f('kel','Kelurahan / Desa')}${f('kec','Kecamatan')}${f('kota','Kota/Kabupaten')}${f('prov','Provinsi')}${f('web','Website')}${f('email','E-mail')}${f('kemen','Nama kementerian (sampul)')}</div>
   <div class="mfoot"><button class="btn" onclick="S.cfg.rpel={};saveCfg();closeModal();render();toast('Kembali ke isian bawaan')">Kembalikan bawaan</button><span class="sp"></span><button class="btn" onclick="closeModal()">Batal</button><button class="btn p" onclick="rpSetSimpan()">Simpan</button></div>`,true)}
 function rpSetSimpan(){const o={};Object.keys(RPEL_DEF).forEach(k=>{const e=document.getElementById('rpc_'+k);if(e)o[k]=e.value.trim()});S.cfg.rpel=o;saveCfg();closeModal();render();toast('Pengaturan tersimpan')}
 
