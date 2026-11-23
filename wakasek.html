@@ -2743,7 +2743,7 @@ const SK_ROM=['I','II','III','IV','V','VI','VII','VIII','IX','X'];
 const SK_MP={IPA:'IPA',IPS:'IPS',BIN:'Bahasa Indonesia',BIG:'Bahasa Inggris',MTK:'Matematika',PP:'Pendidikan Pancasila',PAI:'PAI',PJOK:'PJOK',INF:'TIK',TIK:'TIK',SENI:'Seni Budaya',SB:'Seni Budaya',KKA:'KKA',BK:'BK',KAT:'Agama Katolik',KRI:'Agama Kristen',HIN:'Agama Hindu'};
 const SK_DEF={nama:'',judul:'',nomor:'',tgl:'',tempat:'Tangerang',penetap:'KEPALA SMP NEGERI 5 TANGERANG',pembuka:'KEPALA SMP NEGERI 5 TANGERANG,',
   ttdJab:'Kepala SMP Negeri 5 Tangerang,',ttdNama:'',ttdNip:'',lampKet:'Keputusan Kepala SMP Negeri 5 Tangerang',
-  menimbang:'',mengingat:'',memperhatikan:'',diktum:'',tembusan:'',kolDinas:'Jabatan Dinas',kolPeran:'Jabatan dalam Tim',
+  menimbang:'',mengingat:'',memperhatikan:'',diktum:'',tembusan:'',kolDinas:'Jabatan Dinas',kolPeran:'Jabatan dalam Tim',kolGol:'Pangkat/Gol',catatanLamp1:'',
   judulLamp1:'',judulLamp2:'',anggota:[],tugas:[],lampLain:[],kategori:'POKJA'};
 const skAll=()=>all('sk').sort((a,b)=>String(b.tgl||'').localeCompare(String(a.tgl||''))||(b.dibuat||0)-(a.dibuat||0));
 const skCur=()=>get('sk',UI.skId);
@@ -2789,7 +2789,8 @@ function skMarkup(t){const L=String(t||'').split('\n');let h='',tbl=[],lst=[];
     if(s.startsWith('|')){fL();tbl.push(s);return}fT();
     if(m=s.match(/^([0-9]{1,2}|[a-z])[.)]\s+(.*)$/)){lst.push([m[1]+'.',m[2]]);return}fL();
     if(!s)return;
-    if(m=s.match(/^##\s+(.*)$/))h+=`<p style="font-weight:700;margin:10px 0 4px">${esc(m[1])}</p>`;
+    if(m=s.match(/^###\s+(.*)$/))h+=`<p style="font-weight:700;margin:6px 0 2px 18px">${esc(m[1])}</p>`;
+    else if(m=s.match(/^##\s+(.*)$/))h+=`<p style="font-weight:700;margin:10px 0 4px">${esc(m[1])}</p>`;
     else if(m=s.match(/^#\s+(.*)$/))h+=`<p class="ttl">${esc(m[1])}</p>`;
     else h+=`<p style="text-align:justify;margin:0 0 6px 18px">${esc(s)}</p>`});
   fT();fL();return h}
@@ -2810,11 +2811,11 @@ function gSKTim(d0){const d=skV(d0);const N=skNomorLamp(d);const pages=[];
    <p class="ttl" style="margin:10px 0 8px">MEMUTUSKAN</p>
    <table class="nb skt">${blok('Menetapkan',`<div style="text-align:justify">KEPUTUSAN ${esc(d.penetap)} TENTANG ${esc(d.judul)}.</div>`)}${dk}</table>
    ${skTtd(d,true)}${tb.length?`<div style="margin-top:12px;font-size:11.5px;page-break-inside:avoid">Tembusan:${skList(tb,i=>(i+1)+'.')}</div>`:''}`);
-  if(N.susunan){const showD=!!String(d.kolDinas||'').trim();let no=0,last=null;const cols=showD?5:4;
+  if(N.susunan){const showD=!!String(d.kolDinas||'').trim(),showG=d.kolGol==null||!!String(d.kolGol).trim();let no=0,last=null;const cols=3+(showD?1:0)+(showG?1:0);
     const rows=(d.anggota||[]).map(a=>{const o=skOrang(a);let gr='';if(o.grup&&o.grup!==last){gr=`<tr><td colspan="${cols}" style="font-weight:700;background:#f3f3f3">${esc(o.grup)}</td></tr>`;no=0}last=o.grup||last;no++;
-      return gr+`<tr style="page-break-inside:avoid"><td class="c">${no}</td><td>${esc(o.nama)}${o.nip?`<br>NIP. ${esc(o.nip)}`:''}</td><td class="c">${esc(o.gol)}</td>${showD?`<td>${esc(o.dinas)}</td>`:''}<td>${esc(o.peran)}</td></tr>`}).join('');
+      return gr+`<tr style="page-break-inside:avoid"><td class="c">${no}</td><td>${esc(o.nama)}${o.nip?`<br>NIP. ${esc(o.nip)}`:''}</td>${showG?`<td class="c">${esc(o.gol)}</td>`:''}${showD?`<td>${esc(o.dinas)}</td>`:''}<td>${esc(o.peran)}</td></tr>`}).join('');
     pages.push(skLampHead(d,N.susunan)+skJudulL(d.judulLamp1||('SUSUNAN '+d.judul.replace(/^PEMBENTUKAN\s+/i,'')))+`<div style="height:8px"></div>
-     <table class="sks"><thead><tr><th style="width:34px">No</th><th>Nama / NIP</th><th style="width:96px">Pangkat/Gol</th>${showD?`<th style="width:150px">${esc(d.kolDinas)}</th>`:''}<th style="width:170px">${esc(d.kolPeran||'Jabatan dalam Tim')}</th></tr></thead><tbody>${rows}</tbody></table>`+skTtd(d,false))}
+     <table class="sks"><thead><tr><th style="width:34px">No</th><th>Nama / NIP</th>${showG?`<th style="width:96px">${esc(d.kolGol||'Pangkat/Gol')}</th>`:''}${showD?`<th style="width:150px">${esc(d.kolDinas)}</th>`:''}<th style="width:${showD?170:230}px">${esc(d.kolPeran||'Jabatan dalam Tim')}</th></tr></thead><tbody>${rows}</tbody></table>`+(String(d.catatanLamp1||'').trim()?`<div style="margin-top:6px">${skMarkup(d.catatanLamp1).replace(/margin:0 0 6px 18px/g,'margin:0 0 4px 0')}</div>`:'')+skTtd(d,false))}
   if(N.tugas)pages.push(skLampHead(d,N.tugas)+skJudulL(d.judulLamp2||('URAIAN TUGAS '+d.judul.replace(/^PEMBENTUKAN\s+/i,'')))+`<div style="height:8px"></div>
      <table class="sks"><thead><tr><th style="width:34px">No</th><th style="width:170px">${esc(d.kolPeran||'Jabatan dalam Tim')}</th><th>Uraian Tugas</th></tr></thead><tbody>${(d.tugas||[]).map((t,i)=>`<tr style="page-break-inside:avoid"><td class="c">${i+1}</td><td>${esc(t.jab)}</td><td style="text-align:justify">${skBr(t.uraian)}</td></tr>`).join('')}</tbody></table>`+skTtd(d,false));
   (d.lampLain||[]).forEach((L,i)=>pages.push(skLampHead(d,N.lain[i])+skJudulL(L.judul)+`<div style="height:6px"></div>`+skMarkup(L.isi)+skTtd(d,false)));
@@ -2822,7 +2823,7 @@ function gSKTim(d0){const d=skV(d0);const N=skNomorLamp(d);const pages=[];
 
 /* ---------- catat ke Tugas Tambahan (POKJA / Kepanitiaan) ---------- */
 function skSinkronTT(){const d=skCur();if(!d)return;const K=d.kategori||'POKJA';const nm=String(d.nama||'').trim();if(!nm){toast('Isi dulu nama singkat tim');return}
-  const A=(d.anggota||[]).filter(a=>a.gid&&get('guru',a.gid));const ada=ttAll().filter(t=>t.kategori===K&&t.jenis===nm);
+  const A0=(d.anggota||[]).filter(a=>a.gid&&get('guru',a.gid));const A=[];A0.forEach(a=>{const x=A.find(y=>y.gid===a.gid);if(x){if(a.peran&&!String(x.peran||'').includes(a.peran))x.peran=(x.peran?x.peran+'; ':'')+a.peran}else A.push({gid:a.gid,peran:a.peran||''})});const ada=ttAll().filter(t=>t.kategori===K&&t.jenis===nm);
   confirmBox(`Catat ${A.length} anggota <b>${esc(nm)}</b> ke menu Tugas Tambahan (kategori ${esc(K)})? Peran mengikuti SK ini${ada.length?`; ${ada.length} catatan lama dengan nama yang sama akan diperbarui`:''}. Bisa dibatalkan dengan ↶ Urungkan.`,async()=>{
     if(!panList(K).includes(nm))panSimpanList([...panList(K),nm],K);
     const ids=new Set(A.map(a=>a.gid));for(const a of A){const ex=ada.find(t=>t.guruId===a.gid);const peran=a.peran||'Anggota';
@@ -2874,9 +2875,9 @@ function skBuat(){const d0=skCur();
    </div></div>
   </div><div>
    <div class="card"><h3>Lampiran I – Susunan <small>${A.length} orang</small></h3>
-    <div class="form" style="margin-bottom:8px">${f('kolPeran','Judul kolom peran','Jabatan dalam Tim')}${f('kolDinas','Judul kolom jabatan dinas (kosong = kolom disembunyikan)','Jabatan Dinas')}
+    <div class="form" style="margin-bottom:8px">${f('kolPeran','Judul kolom peran','Jabatan dalam Tim')}${f('kolDinas','Judul kolom jabatan dinas (kosong = disembunyikan)','Jabatan Dinas')}<label>Judul kolom pangkat (kosong = disembunyikan)<input value="${esc(d.kolGol==null?'Pangkat/Gol':d.kolGol)}" onchange="skSet('kolGol',this.value.trim(),1)"></label>
      <label class="full">Judul lampiran <span class="small muted">(kosong = otomatis)</span><textarea rows="2" onchange="skSet('judulLamp1',this.value,1)">${esc(d.judulLamp1||'')}</textarea></label></div>
-    <div class="tw"><table><thead><tr><th>No</th><th>Nama (dari DUK)</th>${showD?'<th>Jabatan dinas</th>':''}<th>Peran</th><th>Kelompok</th><th></th></tr></thead><tbody>${rowsA||`<tr><td colspan="6" class="c muted">Belum ada anggota</td></tr>`}</tbody></table></div>
+    <label class="small" style="display:block;margin:0 0 6px">Catatan di bawah tabel (opsional; bisa memakai tabel | kolom | kolom |)<textarea rows="3" style="width:100%" onchange="skSet('catatanLamp1',this.value,1)">${esc(d.catatanLamp1||'')}</textarea></label><div class="tw"><table><thead><tr><th>No</th><th>Nama (dari DUK)</th>${showD?'<th>Jabatan dinas</th>':''}<th>Peran</th><th>Kelompok</th><th></th></tr></thead><tbody>${rowsA||`<tr><td colspan="6" class="c muted">Belum ada anggota</td></tr>`}</tbody></table></div>
     <div class="bar" style="margin-top:6px"><button class="btn p sm" onclick="skArrOp('anggota','add')">+ Anggota</button><button class="btn sm" onclick="skSinkronTT()" title="Masukkan anggota ke menu Tugas Tambahan agar terhitung di DUK & beban kerja">Catat di Tugas Tambahan</button><button class="btn sm" onclick="skSuratTugas()">Buat surat tugas</button></div>
     <p class="small muted" style="margin:4px 0 0">Nama, NIP, dan pangkat diambil otomatis dari Guru & DUK. Kolom <b>Kelompok</b> dipakai bila tabel perlu dibagi, mis. "A. PANITIA" dan "B. JURI".${d.sinkron?` Terakhir dicatat di Tugas Tambahan: ${new Date(d.sinkron).toLocaleDateString('id-ID')}.`:''}</p></div>
    <div class="card"><h3>Lampiran II – Uraian tugas <small>${T.length} jabatan · kosongkan bila tidak perlu</small></h3>
@@ -2886,18 +2887,18 @@ function skBuat(){const d0=skCur();
    <div class="card"><h3>Lampiran tambahan <small>program kerja, jadwal, dll.</small></h3>${lain}<div class="bar"><button class="btn p sm" onclick="skArrOp('lampLain','add')">+ Lampiran</button></div></div>
   </div></div>
   <h3 style="margin:14px 0 6px">Pratinjau</h3>${docPreview(gSKTim(d))}`}
-function skDaftar(){const L=skAll();const tplAda=new Set(L.map(x=>x.tpl).filter(Boolean));const sisa=SK_TPL().filter(t=>!tplAda.has(t.tpl)).length;
+function skDaftar(){const L=skAll();const sisa=SK_TPL().filter(t=>{const x=L.find(y=>y.tpl===t.tpl);return !x||(+x.tplVer||1)<(+t.tplVer||1)}).length;
   return `<div class="bar"><button class="btn p" onclick="skBaru()">+ SK baru (kosong)</button><button class="btn" onclick="skTplModal()">＋ Masukkan SK bawaan${sisa?` (${sisa})`:''}</button><span class="small muted">SK di sini terpisah dari SK Pembagian Tugas (menu Tugas Tambahan → SK & Lampiran).</span></div>
   ${L.length?`<div class="tw"><table><thead><tr><th>No</th><th>Nama</th><th>Tentang</th><th>Nomor</th><th>Tanggal</th><th class="n">Anggota</th><th></th></tr></thead><tbody>${L.map((d,i)=>`<tr><td class="c muted">${i+1}</td><td><b>${esc(d.nama||'')}</b></td><td class="small" style="max-width:380px">${esc(d.judul||'')}</td><td class="small">${esc(d.nomor||'')}</td><td class="small">${esc(skTgl(d.tgl))}</td><td class="n">${(d.anggota||[]).length}</td>
-   <td style="white-space:nowrap"><button class="btn sm p" onclick="UI.skId='${d.id}';UI.tab.sk='buat';render()">Buka</button> <button class="btn sm" onclick="skDuplikat('${d.id}')">Duplikat</button> <button class="btn sm d" onclick="skHapus('${d.id}')">Hapus</button></td></tr>`).join('')}</tbody></table></div>`:`<div class="card empty">Belum ada SK. Klik <b>＋ Masukkan SK bawaan</b> untuk memasukkan SK yang sudah disusun (SSK, GSS, LCC, Adiwiyata, Lab IPA, Lab Komputer), atau buat yang baru.</div>`}`}
-function skTplModal(){const ada=new Set(skAll().map(x=>x.tpl).filter(Boolean));const T=SK_TPL();
-  openModal(`<h2>Masukkan SK bawaan</h2><p class="small muted">Nama, NIP, dan pangkat anggota dicocokkan dengan data Guru & DUK berdasarkan NIP. SK yang sudah pernah dimasukkan ditandai.</p>
-   <div class="checks" id="skTp" style="flex-direction:column;align-items:flex-start">${T.map((t,i)=>`<label><input type="checkbox" value="${i}" ${ada.has(t.tpl)?'':'checked'}> <b>${esc(t.nama)}</b> <span class="small muted">— ${(t.anggota||[]).length} orang${ada.has(t.tpl)?' · sudah ada':''}</span></label>`).join('')}</div>
+   <td style="white-space:nowrap"><button class="btn sm p" onclick="UI.skId='${d.id}';UI.tab.sk='buat';render()">Buka</button> <button class="btn sm" onclick="skDuplikat('${d.id}')">Duplikat</button> <button class="btn sm d" onclick="skHapus('${d.id}')">Hapus</button></td></tr>`).join('')}</tbody></table></div>`:`<div class="card empty">Belum ada SK. Klik <b>＋ Masukkan SK bawaan</b> untuk memasukkan SK yang sudah disusun (SSK, GSS, LCC, Perpustakaan, SPMI, Adiwiyata, Lab IPA, Lab Komputer), atau buat yang baru.</div>`}`}
+function skTplModal(){const L=skAll();const T=SK_TPL();const cari=t=>L.find(x=>x.tpl===t.tpl);const baru=t=>{const x=cari(t);return x&&(+x.tplVer||1)<(+t.tplVer||1)};
+  openModal(`<h2>Masukkan SK bawaan</h2><p class="small muted">Nama, NIP, dan pangkat anggota dicocokkan dengan data Guru & DUK berdasarkan NIP. SK bertanda <b>versi final</b> akan menimpa isi SK lama dengan nama yang sama (bisa dibatalkan dengan ↶ Urungkan).</p>
+   <div class="checks" id="skTp" style="flex-direction:column;align-items:flex-start">${T.map((t,i)=>{const x=cari(t);return `<label><input type="checkbox" value="${i}" ${!x||baru(t)?'checked':''}> <b>${esc(t.nama)}</b> <span class="small muted">— ${(t.anggota||[]).length} orang${x?(baru(t)?' · <b style="color:var(--acc)">ada versi final, perbarui</b>':' · sudah ada'):''}</span></label>`}).join('')}</div>
    <div class="mfoot"><button class="btn" onclick="closeModal()">Batal</button><button class="btn p" id="skTpGo">Masukkan</button></div>`);
-  $('#skTpGo').onclick=async()=>{const pil=[...document.querySelectorAll('#skTp input:checked')].map(x=>T[+x.value]);closeModal();if(!pil.length)return;let tdk=0;
+  $('#skTpGo').onclick=async()=>{const pil=[...document.querySelectorAll('#skTp input:checked')].map(x=>T[+x.value]);closeModal();if(!pil.length)return;let tdk=0,upd=0;
     for(const t of pil){const o=JSON.parse(JSON.stringify(t));o.dibuat=Date.now();o.anggota=(o.anggota||[]).map(a=>{const g=a.nip?skCariNip(a.nip):null;if(g)return {gid:g.id,peran:a.peran,dinas:a.dinas||'',grup:a.grup||''};if(a.nip)tdk++;return {gid:'',nama:a.nama,nip:a.nip||'',gol:a.gol||'',peran:a.peran,dinas:a.dinas||'',grup:a.grup||''}});
-      await put('sk',o,{silent:true})}
-    render();toast(`${pil.length} SK dimasukkan${tdk?` · ${tdk} nama tidak ketemu di DUK, diisi manual`:''}`)}}
+      const x=cari(t);if(x){o.id=x.id;o.dibuat=x.dibuat||o.dibuat;upd++}await put('sk',o,{silent:true})}
+    render();toast(`${pil.length-upd} SK dimasukkan${upd?`, ${upd} diperbarui`:''}${tdk?` · ${tdk} nama tidak ketemu di DUK, diisi manual`:''}`)}}
 function vSK(){const tab=UI.tab.sk||(UI.skId&&skCur()?'buat':'daftar');
   return `<div class="tabs">${[['daftar','🗂 Daftar SK'],['buat','✎ Susun / Ubah SK']].map(([k,l])=>`<a class="${tab===k?'on':''}" onclick="UI.tab.sk='${k}';render()">${l}</a>`).join('')}</div>`+(tab==='buat'?skBuat():skDaftar())}
 
@@ -2914,7 +2915,7 @@ const LAB_DASAR=['Undang-Undang Nomor 20 Tahun 2003 tentang Sistem Pendidikan Na
 const umum={tempat:'Tangerang',penetap:'KEPALA SMP NEGERI 5 TANGERANG',pembuka:'PLT. KEPALA SMP NEGERI 5 TANGERANG,',ttdJab:'Plt. Kepala SMP Negeri 5 Tangerang,',lampKet:'Keputusan Kepala SMP Negeri 5 Tangerang',kolDinas:'Jabatan Dinas',kolPeran:'Jabatan dalam Tim',kategori:'POKJA',memperhatikan:'',lampLain:[],...KS};
 return [
 /* ===== 1. SSK ===== */
-{...umum,tpl:'ssk',nama:'Tim SSK',nomor:'400.3/……/SMPN 5/XI/2026',tgl:'2026-11-01',
+{...umum,tpl:'ssk',tplVer:2,nama:'Tim SSK',nomor:'400.3/……/SMPN 5/XI/2026',tgl:'2026-11-01',
  judul:'PEMBENTUKAN TIM PENGELOLA SEKOLAH SIAGA KEPENDUDUKAN (SSK) SMP NEGERI 5 TANGERANG TAHUN PELAJARAN 2026/2027',
  menimbang:['bahwa untuk menanamkan pemahaman, kesadaran, sikap, dan perilaku berwawasan kependudukan kepada peserta didik, perlu diselenggarakan pendidikan kependudukan, keluarga berencana, dan pembangunan keluarga di sekolah;',
   'bahwa SMP Negeri 5 Tangerang secara mandiri berinisiatif menyelenggarakan program Sekolah Siaga Kependudukan (SSK) sebagai bagian dari program pengembangan sekolah;',
@@ -2980,7 +2981,7 @@ return [
   'Program kerja ini menjadi acuan Tim Pengelola SSK dalam melaksanakan kegiatan selama Tahun Pelajaran 2026/2027 dan dapat disesuaikan dengan kebijakan sekolah serta arahan instansi pembina.'].join('\n')}]},
 
 /* ===== 2. Gerakan Sekolah Sehat (versi ringkas) ===== */
-{...umum,tpl:'gss',nama:'Tim Gerakan Sekolah Sehat',nomor:'270/400.3.5.08/SMP5/IX/2026',tgl:'2026-09-01',kolDinas:'Jabatan Pokok',
+{...umum,tpl:'gss',tplVer:2,nama:'Tim Gerakan Sekolah Sehat',nomor:'270/400.3.5.08/SMP5/IX/2026',tgl:'2026-09-01',kolDinas:'Jabatan Pokok / Instansi',kolGol:'',
  judul:'PEMBENTUKAN TIM PELAKSANA GERAKAN SEKOLAH SEHAT SMP NEGERI 5 TANGERANG TAHUN PELAJARAN 2026/2027',
  menimbang:'bahwa dalam rangka meningkatkan derajat kesehatan dan membiasakan perilaku hidup bersih dan sehat bagi seluruh warga SMP Negeri 5 Tangerang, perlu dilaksanakan Gerakan Sekolah Sehat melalui penguatan Usaha Kesehatan Sekolah/Madrasah (UKS/M);\nbahwa berdasarkan pertimbangan sebagaimana dimaksud pada huruf a, perlu menetapkan Keputusan Kepala SMP Negeri 5 Tangerang tentang Pembentukan Tim Pelaksana Gerakan Sekolah Sehat Tahun Pelajaran 2026/2027.',
  mengingat:['Undang-Undang Nomor 20 Tahun 2003 tentang Sistem Pendidikan Nasional;','Undang-Undang Nomor 17 Tahun 2023 tentang Kesehatan;',
@@ -2991,7 +2992,7 @@ return [
   'Tim bertugas merencanakan, melaksanakan, memantau, dan melaporkan kegiatan Gerakan Sekolah Sehat sebagaimana tercantum dalam Lampiran II Keputusan ini.',
   'Segala biaya yang timbul akibat Keputusan ini dibebankan pada anggaran yang sah dan tersedia di SMP Negeri 5 Tangerang.',
   'Keputusan ini berlaku sejak tanggal ditetapkan, dengan ketentuan apabila terdapat kekeliruan akan diperbaiki sebagaimana mestinya.'].join('\n'),
- tembusan:'Kepala Dinas Pendidikan Kota Tangerang;\nPengawas Sekolah Pembina;\nKepala Puskesmas ……;\nYang bersangkutan untuk dilaksanakan.',
+ tembusan:'Kepala Dinas Pendidikan Kota Tangerang;\nPengawas Sekolah Pembina;\nKepala Puskesmas ............;\nYang bersangkutan untuk dilaksanakan.',
  judulLamp1:'SUSUNAN TIM PELAKSANA GERAKAN SEKOLAH SEHAT\nSMP NEGERI 5 TANGERANG TAHUN PELAJARAN 2026/2027',
  judulLamp2:'URAIAN TUGAS TIM PELAKSANA GERAKAN SEKOLAH SEHAT\nSMP NEGERI 5 TANGERANG TAHUN PELAJARAN 2026/2027',
  anggota:[PJ,
@@ -3002,16 +3003,16 @@ return [
   {nip:'19720607 200604 2 005',nama:'NENI ENIN, S.Pd',gol:'Pembina, IV/a',dinas:'Guru BK',peran:'Koordinator Sehat Imunisasi'},
   {nip:'19730430 200604 2 010',nama:'MULYANAH, S.Pd',gol:'Penata Tk I, III/d',dinas:'Guru BK',peran:'Koordinator Sehat Jiwa'},
   {nip:'19840731 202421 2 005',nama:"ZAHROTUN NISA', S.Pd",gol:'IX',dinas:'Guru IPA',peran:'Koordinator Sehat Lingkungan'},
-  {nip:'19730507 200212 2 004',nama:'WIWIN HERWIDYASTARI, S.Pd',gol:'Pembina Tk I, IV/b',dinas:'Guru IPA',peran:'Anggota (Perwakilan Komite Sekolah)'}],
+  {nip:'19730507 200212 2 004',nama:'WIWIN HERWIDYASTARI, S.Pd',gol:'Pembina Tk I, IV/b',dinas:'Komite Sekolah',peran:'Anggota (Perwakilan Komite Sekolah)'}],
  tugas:[
   {jab:'Penanggung Jawab',uraian:'Menetapkan target program dalam RKS/RKAS, menyediakan sumber daya, serta memantau dan mengevaluasi kinerja tim.'},
   {jab:'Ketua',uraian:'Memimpin dan mengoordinasikan tim, menyusun program kerja tahunan, serta melaporkan hasil kepada Kepala Sekolah.'},
   {jab:'Sekretaris',uraian:'Mengelola administrasi, notulen, dokumentasi, dan laporan kegiatan.'},
-  {jab:'Koordinator Sehat Bergizi',uraian:'Pembiasaan gizi seimbang (Isi Piringku), pendampingan MBG, dan pembinaan kantin sehat.'},
-  {jab:'Koordinator Sehat Fisik',uraian:'Senam pagi, peregangan, kegiatan olahraga, dan Tes Kebugaran Siswa Indonesia (TKSI).'},
-  {jab:'Koordinator Sehat Imunisasi',uraian:'Pemetaan status imunisasi, pengelolaan ruang UKS/P3K, serta koordinasi dengan Puskesmas untuk pemeriksaan kesehatan berkala dan pemberian Tablet Tambah Darah.'},
-  {jab:'Koordinator Sehat Jiwa',uraian:'Pencegahan perundungan bersama TPPK, layanan konseling, dan konselor sebaya.'},
-  {jab:'Koordinator Sehat Lingkungan',uraian:'PHBS, cuci tangan pakai sabun, pengelolaan sampah, pemantauan jentik, dan Kawasan Tanpa Rokok, terintegrasi dengan Adiwiyata.'},
+  {jab:'Koord. Sehat Bergizi',uraian:'Pembiasaan gizi seimbang (Isi Piringku), pendampingan MBG, dan pembinaan kantin sehat.'},
+  {jab:'Koord. Sehat Fisik',uraian:'Senam pagi, peregangan, kegiatan olahraga, dan Tes Kebugaran Siswa Indonesia (TKSI).'},
+  {jab:'Koord. Sehat Imunisasi',uraian:'Pemetaan status imunisasi, pengelolaan ruang UKS/P3K, serta koordinasi dengan Puskesmas untuk pemeriksaan kesehatan berkala dan pemberian Tablet Tambah Darah.'},
+  {jab:'Koord. Sehat Jiwa',uraian:'Pencegahan perundungan bersama TPPK, layanan konseling, dan konselor sebaya.'},
+  {jab:'Koord. Sehat Lingkungan',uraian:'PHBS, cuci tangan pakai sabun, pengelolaan sampah, pemantauan jentik, dan Kawasan Tanpa Rokok, terintegrasi dengan Adiwiyata.'},
   {jab:'Anggota (Perwakilan Komite Sekolah)',uraian:'Menjembatani tim dengan Komite Sekolah dan orang tua dalam sosialisasi program; menggalang dukungan secara sukarela tanpa pungutan; ikut memantau kantin, MBG, dan lingkungan sekolah; menyampaikan aspirasi orang tua kepada tim.'}]},
 
 /* ===== 3. Panitia & Juri LCC Arena 5 ===== */
@@ -3051,6 +3052,101 @@ return [
       ['19711113 200212 2 001','Hj. MUFLIHAH, SS, M.Pd','Pembina, IV/a','Bahasa Inggris'],['19800525 202421 2 010','UMI ANISAH, S.Pd','IX','Bahasa Inggris'],['19940205 202421 2 017','LINA RIZKI HASYYATI, S.Pd','IX','Bahasa Inggris']]
    .map(([nip,nama,gol,mp])=>({nip,nama,gol,peran:'Juri '+mp,grup:'C. JURI'}))],
  tugas:[]},
+
+/* ===== Perpustakaan (versi final dari dokumen) ===== */
+{...umum,tpl:'perpus',tplVer:2,nama:'Tim Pengelola & Guru Piket Perpustakaan',nomor:'240/400.3.5.08/SMP 5/X/2026',tgl:'2026-10-01',
+ penetap:'Plt. KEPALA SMP NEGERI 5 TANGERANG',pembuka:'Plt. KEPALA SMP NEGERI 5 TANGERANG,',lampKet:'Keputusan Plt. Kepala SMP Negeri 5 Tangerang',ttdNama:'H. MOHAMAD ISDARMANTO, M. Pd.',
+ kolGol:'',kolDinas:'',kolPeran:'Kedudukan',
+ judul:'PEMBENTUKAN TIM PENGELOLA DAN GURU PIKET LAYANAN PERPUSTAKAAN SMP NEGERI 5 TANGERANG TAHUN PELAJARAN 2026/2027',
+ menimbang:['bahwa perpustakaan sekolah merupakan sumber belajar yang mendukung pembelajaran dan budaya literasi;','bahwa diperlukan pengelolaan koleksi, administrasi, dan pelayanan perpustakaan secara tertib dan berkelanjutan;',
+  'bahwa dalam kondisi belum tersedianya tenaga perpustakaan khusus, perlu penugasan tim pengelola dan guru piket dengan tetap memperhatikan tugas utama guru;',
+  'bahwa berdasarkan pertimbangan tersebut perlu menetapkan keputusan kepala sekolah tentang pembentukan tim pengelola dan guru piket layanan perpustakaan.'].join('\n'),
+ mengingat:['Undang-Undang Nomor 20 Tahun 2003 tentang Sistem Pendidikan Nasional;','Undang-Undang Nomor 43 Tahun 2007 tentang Perpustakaan;',
+  'Peraturan Pemerintah Nomor 24 Tahun 2014 tentang Pelaksanaan Undang-Undang Nomor 43 Tahun 2007 tentang Perpustakaan;','Peraturan Perpustakaan Nasional Nomor 4 Tahun 2024 tentang Standar Nasional Perpustakaan Sekolah/Madrasah.'].join('\n'),
+ memperhatikan:'Program kerja SMP Negeri 5 Tangerang Tahun Pelajaran 2026/2027;\nKondisi dan kebutuhan pengelolaan perpustakaan serta hasil koordinasi internal sekolah.',
+ diktum:['Membentuk Tim Pengelola dan Guru Piket Layanan Perpustakaan dengan susunan sebagaimana Lampiran I.','Menugaskan tim melaksanakan pengelolaan koleksi, administrasi, pelayanan, literasi, dan evaluasi perpustakaan.',
+  'Menetapkan uraian tugas pokok dan fungsi sebagaimana Lampiran II.','Guru piket melaksanakan layanan sesuai jadwal dengan memperhatikan kewajiban mengajar.',
+  'Ketua tim mengoordinasikan program, pelaporan, dan evaluasi kepada kepala sekolah.','Biaya pelaksanaan dibebankan pada anggaran sekolah yang sah dan tersedia sesuai ketentuan.',
+  'Keputusan berlaku sejak ditetapkan sampai akhir Tahun Pelajaran 2026/2027 dan dapat diperbaiki apabila terdapat kekeliruan.'].join('\n'),
+ tembusan:'',judulLamp1:'SUSUNAN TIM PENGELOLA DAN GURU PIKET LAYANAN PERPUSTAKAAN',
+ anggota:[{...PJ,peran:'Penanggung Jawab (Kepala Sekolah)',grup:'A. Tim Pengelola'},
+  {nip:'19910806 202421 2 021',nama:'SASRI MARLINA, S. Pd',gol:'IX',peran:'Ketua Tim Pengelola',grup:'A. Tim Pengelola'},
+  {nip:'19940205 202421 2 017',nama:'LINA RIZKI HASYYATI, S. Pd',gol:'IX',peran:'Anggota Bidang Administrasi dan Pelaporan',grup:'A. Tim Pengelola'},
+  {nip:'19991125 202521 2 033',nama:'LENA NURLIYANA, S. Pd.',gol:'IX',peran:'Anggota Bidang Pengolahan dan Inventaris Koleksi',grup:'A. Tim Pengelola'},
+  {nip:'19800525 202421 2 010',nama:'UMI ANISAH, S. Pd',gol:'IX',peran:'Anggota Bidang Pelayanan dan Sirkulasi',grup:'A. Tim Pengelola'},
+  {nip:'20000211 202521 2 016',nama:'AYU NUR SHOLIHAH, S. Pd.',gol:'IX',peran:'Anggota Bidang Literasi dan Pemanfaatan',grup:'A. Tim Pengelola'}],
+ catatanLamp1:['## B. Guru Piket Layanan Perpustakaan','| Hari | Petugas Piket |','| Senin | SASRI MARLINA, S. Pd — NIP. 19910806 202421 2 021 |','| Selasa | LINA RIZKI HASYYATI, S. Pd — NIP. 19940205 202421 2 017 |',
+  '| Rabu | LENA NURLIYANA, S. Pd. — NIP. 19991125 202521 2 033 |','| Kamis | UMI ANISAH, S. Pd — NIP. 19800525 202421 2 010 |','| Jumat | AYU NUR SHOLIHAH, S. Pd. — NIP. 20000211 202521 2 016 |',
+  'Ketentuan: Jadwal disesuaikan dengan jam mengajar; anggota tim dapat merangkap guru piket; perubahan jadwal dikoordinasikan oleh ketua tim.'].join('\n'),
+ tugas:[],
+ lampLain:[{judul:'URAIAN TUGAS POKOK DAN FUNGSI TIM PENGELOLA DAN GURU PIKET\nLAYANAN PERPUSTAKAAN',isi:[
+  '## A. PENANGGUNG JAWAB','1. Menetapkan kebijakan dan mengesahkan program kerja perpustakaan.','2. Membina, memantau, dan mengevaluasi kinerja tim.','3. Memfasilitasi kebutuhan koleksi dan sarana sesuai kemampuan sekolah.','4. Menetapkan tindak lanjut berdasarkan laporan evaluasi.',
+  'Dokumen/hasil kerja: Program yang disahkan, hasil monitoring, keputusan tindak lanjut.',
+  '## B. KETUA TIM PENGELOLA','1. Menyusun program kerja tahunan bersama anggota.','2. Mengatur pembagian tugas dan jadwal piket guru.','3. Mengoordinasikan pengolahan koleksi, layanan, buku paket, dan kegiatan literasi.','4. Mengawasi penerapan tata tertib dan SOP.','5. Memantau kondisi ruang, fasilitas, dan koleksi.','6. Melaksanakan koordinasi dan evaluasi berkala.','7. Menyusun laporan semester dan tahunan kepada kepala sekolah.',
+  'Dokumen/hasil kerja: Program kerja, jadwal piket, instrumen monitoring, laporan semester/tahunan.',
+  '## C. BIDANG ADMINISTRASI DAN PELAPORAN','1. Mengarsipkan SK, SOP, program kerja, jadwal, dan dokumen perpustakaan.','2. Memperbarui data anggota perpustakaan.','3. Mengumpulkan data kunjungan, transaksi, dan jurnal piket.','4. Membuat rekapitulasi statistik bulanan.','5. Menyiapkan notula rapat dan dokumentasi kegiatan.','6. Membantu penyusunan laporan berkala.',
+  'Dokumen/hasil kerja: Daftar anggota, arsip, rekap bulanan, notula, laporan.',
+  '## D. BIDANG PENGOLAHAN DAN INVENTARIS KOLEKSI','1. Memeriksa dan memperbarui buku induk koleksi secara bertahap.','2. Melaksanakan klasifikasi, penentuan nomor panggil, katalogisasi, dan pelabelan.','3. Memberi stempel dan melengkapi identitas koleksi.','4. Menata buku pada rak sesuai kategori dan nomor panggil.','5. Mencatat penerimaan dan kondisi koleksi baru maupun lama.','6. Mendata buku rusak, hilang, dan memerlukan perbaikan.','7. Mengelola data buku paket yang berada dalam tanggung jawab perpustakaan.','8. Mengusulkan tindak lanjut koleksi sesuai ketentuan aset sekolah.',
+  'Dokumen/hasil kerja: Buku induk, katalog, daftar penerimaan, daftar buku rusak/hilang, rekap inventaris.',
+  '## E. BIDANG PELAYANAN DAN SIRKULASI','1. Menyiapkan dan menerapkan SOP kunjungan, peminjaman, dan pengembalian.','2. Mengoordinasikan guru piket dan kesiapan administrasi layanan.','3. Memastikan semua transaksi dicatat secara konsisten.','4. Memantau keterlambatan dan permasalahan pengembalian.','5. Memeriksa jurnal piket dan merekap layanan.','6. Mengoordinasikan distribusi/pengembalian buku paket apabila dikelola perpustakaan.','7. Melaporkan kendala layanan kepada ketua tim.',
+  'Dokumen/hasil kerja: Buku kunjungan, register transaksi, daftar keterlambatan, jurnal piket, rekap layanan.',
+  '## F. BIDANG LITERASI DAN PEMANFAATAN','1. Menyusun kegiatan literasi berbasis perpustakaan.','2. Mengatur kunjungan kelas dan koordinasi dengan guru mata pelajaran.','3. Mempromosikan koleksi melalui rekomendasi buku dan kegiatan membaca.','4. Mengumpulkan usulan kebutuhan koleksi dari guru dan siswa.','5. Mendokumentasikan dan mengevaluasi pelaksanaan kegiatan.',
+  'Dokumen/hasil kerja: Jadwal literasi, jurnal kegiatan, usulan buku, dokumentasi, laporan evaluasi.',
+  '## G. GURU PIKET LAYANAN PERPUSTAKAAN','1. Melaksanakan piket sesuai jadwal dan memeriksa kesiapan ruang.','2. Mengarahkan pengunjung mengisi daftar kunjungan.','3. Melayani dan mencatat peminjaman serta pengembalian buku.','4. Membantu pencarian koleksi dan menjaga ketertiban layanan.','5. Memeriksa kondisi buku yang dikembalikan dan mencatat temuan.','6. Menjaga kerapian koleksi dan fasilitas selama piket.','7. Mengisi jurnal harian berisi pengunjung, transaksi, kejadian, dan tindak lanjut.','8. Melaporkan kendala serta menyerahkan informasi yang belum selesai kepada petugas berikutnya.',
+  'Dokumen/hasil kerja: Daftar kunjungan, register transaksi, jurnal piket, catatan kejadian.',
+  '## H. KOORDINASI DAN PELAPORAN','1. Ketua tim bertanggung jawab kepada kepala sekolah.','2. Setiap anggota bertanggung jawab atas bidang tugas masing-masing.','3. Guru piket berkoordinasi dengan bidang pelayanan dan sirkulasi.','4. Rekap operasional dibuat bulanan dan evaluasi formal minimal setiap semester.','5. Penugasan tidak mengurangi kewajiban utama guru dalam pembelajaran.','6. Penanganan barang milik daerah mengikuti prosedur pengelolaan aset yang berlaku.',
+  'Dokumen/hasil kerja: Laporan dan dokumentasi sesuai bidang.'].join('\n')}]},
+
+/* ===== SPMI (versi final dari dokumen) ===== */
+{...umum,tpl:'spmi',tplVer:2,nama:'Tim SPMI',nomor:'225.a /400.3.5.08/SMP5/X/2026',tgl:'2026-10-01',
+ pembuka:'Plt. KEPALA SMP NEGERI 5 TANGERANG,',ttdJab:'Kepala SMP Negeri 5 Tangerang,',ttdNama:'H. MOHAMAD ISDARMANTO, M. Pd.',kolGol:'',kolDinas:'',
+ judul:'PEMBENTUKAN TIM SISTEM PENJAMINAN MUTU INTERNAL (SPMI) SMP NEGERI 5 TANGERANG TAHUN 2026-2027',
+ menimbang:['bahwa peningkatan mutu pendidikan perlu dilaksanakan secara terencana, sistematis, berkelanjutan, dan berbasis data;',
+  'bahwa fungsi perencanaan dan pengembangan sekolah perlu diintegrasikan dalam siklus penjaminan dan peningkatan mutu internal agar pelaksanaan program lebih efektif dan tidak terjadi duplikasi tugas;',
+  'bahwa berdasarkan pertimbangan sebagaimana dimaksud pada huruf a dan huruf b perlu menetapkan Keputusan Kepala Sekolah tentang Pembentukan Tim Sistem Penjaminan Mutu Internal (SPMI).'].join('\n'),
+ mengingat:['Undang-Undang Nomor 20 Tahun 2003 tentang Sistem Pendidikan Nasional;','Peraturan Pemerintah Nomor 57 Tahun 2021 tentang Standar Nasional Pendidikan sebagaimana telah diubah dengan Peraturan Pemerintah Nomor 4 Tahun 2022;',
+  'Ketentuan peraturan perundang-undangan mengenai standar nasional pendidikan, evaluasi sistem pendidikan, dan perencanaan satuan pendidikan yang berlaku;','Dokumen perencanaan dan hasil evaluasi diri SMP Negeri 5 Tangerang tahun berjalan.'].join('\n'),
+ diktum:['Membentuk Tim Sistem Penjaminan Mutu Internal (SPMI) SMP Negeri 5 Tangerang Tahun Pelajaran 2026/2027 dengan susunan sebagaimana tercantum dalam Lampiran I yang merupakan bagian tidak terpisahkan dari keputusan ini.',
+  'Tim SPMI mengoordinasikan fungsi pemetaan, analisis, perencanaan pengembangan, pendampingan, pemantauan, evaluasi, dan tindak lanjut peningkatan mutu sekolah dalam satu siklus kerja terpadu, tanpa membentuk Tim Pengembang Sekolah (TPS) sebagai tim tersendiri.',
+  'Tim SPMI melaksanakan tugas dan tanggung jawab sesuai Lampiran II, termasuk menyusun rekomendasi prioritas pengembangan sekolah sebagai bahan perencanaan dan penganggaran melalui mekanisme yang berlaku, tanpa mengambil alih kewenangan pelaksana program, Tim BOS, dan pelaksana pengadaan barang/jasa.',
+  'Dalam melaksanakan tugas, Tim SPMI menggunakan data yang sahih, termasuk Rapor Pendidikan dan data internal sekolah, serta memperhatikan kerahasiaan data pribadi.',
+  'Tim SPMI menyampaikan laporan hasil kerja kepada Kepala Sekolah sekurang-kurangnya setiap semester dan laporan akhir tahun, untuk ditindaklanjuti dalam siklus perbaikan mutu.',
+  'Segala biaya yang timbul akibat pelaksanaan keputusan ini dibebankan pada anggaran sekolah yang sah dan tersedia sesuai ketentuan peraturan perundang-undangan.',
+  'Keputusan ini berlaku sejak tanggal ditetapkan sampai dengan 1 Juli 2027, dengan ketentuan apabila terdapat kekeliruan akan dilakukan perbaikan sebagaimana mestinya.'].join('\n'),
+ tembusan:'',judulLamp1:'SUSUNAN TIM SPMI TAHUN PELAJARAN 2026/2027',
+ anggota:[PJ,
+  {nip:'19810525 200604 2 012',nama:'DEVY SYLVYA, S.Pd',gol:'Pembina, IV/a',peran:'Ketua'},
+  {nip:'20010209 202521 2 010',nama:'DEWI PURWANTI, S. Pd.',gol:'IX',peran:'Sekretaris'},
+  {nip:'19961108 202221 2 005',nama:'MONALISA, S.Kom',gol:'IX',peran:'Koordinator Pemetaan Mutu dan Data'},
+  {nip:'20000120 202521 2 018',nama:'KHOIRUNNISA SALSABILA, S. Mat.',gol:'IX',peran:'Koordinator Kurikulum dan Pembelajaran'},
+  {nip:'19691031 199702 2 003',nama:'ISNA NURDIANA, S.Pd',gol:'Pembina Tk I, IV/b',peran:'Koordinator Asesmen dan Evaluasi Pembelajaran'},
+  {nip:'19740102 200501 2 005',nama:'Hj. DEWI RAHMAWATI, S.Pd',gol:'Pembina Tk I, IV/b',peran:'Koordinator Pendidik dan Tenaga Kependidikan'},
+  {nip:'19800608 202221 1 004',nama:'FIRMAN JUNAIDI, S.Sos',gol:'IX',peran:'Koordinator Kesiswaan dan Iklim Sekolah'},
+  {nip:'19680317 200312 2 006',nama:'ENENG HERLINA YULIASIH, S.Pd',gol:'Pembina Tk I, IV/b',peran:'Koordinator Sarana, Prasarana, dan Lingkungan'},
+  {nip:'20020415 202521 2 000',nama:'CATERINA VINANTI, S.Kom',gol:'–',peran:'Koordinator Perencanaan Program dan Anggaran'},
+  {nip:'19730507 200212 2 004',nama:'WIWIN HERWIDYASTARI, S.Pd',gol:'Pembina Tk I, IV/b',peran:'Koordinator Pemantauan, Evaluasi, dan Tindak Lanjut'}],
+ tugas:[],
+ lampLain:[{judul:'URAIAN TUGAS DAN TANGGUNG JAWAB\nTIM SISTEM PENJAMINAN MUTU INTERNAL (SPMI)\nSMP NEGERI 5 TANGERANG TAHUN PELAJARAN 2026/2027',isi:[
+  '## A. KETENTUAN UMUM',
+  'Tim SPMI mengoordinasikan siklus penjaminan dan peningkatan mutu sekolah yang meliputi pemetaan kondisi, analisis akar masalah, penyusunan rekomendasi perencanaan pengembangan, pendampingan pelaksanaan, pemantauan, evaluasi, serta tindak lanjut. Program dijalankan oleh unit atau penanggung jawab kegiatan sesuai kewenangannya. Tim SPMI tidak mengambil alih fungsi pengelolaan anggaran, pengadaan barang/jasa, maupun keputusan Kepala Sekolah.',
+  '## B. URAIAN TUGAS PER JABATAN',
+  '### 1. Penanggung Jawab','a. Memberikan arahan kebijakan dan menetapkan prioritas peningkatan serta pengembangan sekolah berdasarkan data.','b. Memfasilitasi koordinasi antarbidang dan dukungan sumber daya sesuai kewenangan.','c. Menelaah, menetapkan tindak lanjut, dan mengevaluasi rekomendasi serta laporan SPMI.','Hasil kerja: Arahan prioritas mutu, keputusan tindak lanjut, dan pengesahan laporan.',
+  '### 2. Ketua','a. Memimpin penyusunan program kerja terpadu SPMI dan pembagian tugas antar bidang.','b. Mengoordinasikan pemetaan mutu, perumusan prioritas pengembangan, pendampingan pelaksanaan, dan evaluasi.','c. Memastikan rekomendasi setiap bidang terintegrasi serta disampaikan kepada Kepala Sekolah untuk ditindaklanjuti.','Hasil kerja: Program kerja terpadu, matriks koordinasi, dan laporan capaian peningkatan mutu.',
+  '### 3. Sekretaris','a. Mengelola agenda, undangan, notula, daftar hadir, dan arsip administrasi kegiatan.','b. Mengompilasi peta masalah, rekomendasi program, matriks tindak lanjut, dan bukti pelaksanaan dari seluruh bidang.','c. Menyiapkan rekapitulasi laporan semester dan akhir tahun.','Hasil kerja: Dokumentasi kegiatan, rekapitulasi program, matriks tindak lanjut, dan laporan tim.',
+  '### 4. Koordinator Pemetaan Mutu dan Data','a. Menghimpun dan memvalidasi Rapor Pendidikan serta data internal sekolah yang relevan.','b. Mengidentifikasi kesenjangan capaian dan menganalisis akar masalah bersama koordinator terkait.','c. Menyediakan dasar data untuk penetapan prioritas pengembangan serta memelihara keamanan dan kerahasiaan data.','Hasil kerja: Peta mutu, analisis akar masalah, dan daftar prioritas berbasis data.',
+  '### 5. Koordinator Kurikulum dan Pembelajaran','a. Mengkaji kebutuhan pengembangan kurikulum dan peningkatan kualitas pembelajaran.','b. Merumuskan rekomendasi program perbaikan pembelajaran, pendampingan, dan penguatan praktik baik.','c. Memantau pelaksanaan rekomendasi bersama penanggung jawab kegiatan pembelajaran.','Hasil kerja: Analisis kebutuhan dan usulan pengembangan kurikulum serta pembelajaran.',
+  '### 6. Koordinator Asesmen dan Evaluasi Pembelajaran','a. Mengkaji kualitas asesmen dan penggunaan hasilnya untuk memperbaiki pembelajaran.','b. Menyusun rekomendasi penguatan literasi, numerasi, dan capaian belajar berdasarkan data.','c. Menganalisis perubahan hasil belajar sebagai bahan evaluasi program pengembangan akademik.','Hasil kerja: Telaah asesmen, rekomendasi pengembangan akademik, dan analisis kemajuan belajar.',
+  '### 7. Koordinator Pendidik dan Tenaga Kependidikan','a. Memetakan kebutuhan kompetensi guru dan tenaga kependidikan.','b. Mengusulkan pengembangan profesional melalui komunitas belajar, pelatihan, pendampingan, atau berbagi praktik baik.','c. Menghimpun bukti pelaksanaan dan menelaah manfaat kegiatan bagi mutu layanan sekolah.','Hasil kerja: Peta kebutuhan kompetensi, usulan program pengembangan, dan telaah hasil kegiatan.',
+  '### 8. Koordinator Kesiswaan dan Iklim Sekolah','a. Menganalisis kebutuhan penguatan karakter, keamanan, kebinekaan, inklusivitas, dan layanan peserta didik.','b. Mengusulkan program pengembangan iklim sekolah dan layanan kesiswaan berdasarkan temuan serta masukan warga sekolah.','c. Memantau tindak lanjut program dengan menjaga perlindungan dan kerahasiaan data peserta didik.','Hasil kerja: Peta kebutuhan kesiswaan dan iklim sekolah serta rekomendasi program pengembangan.',
+  '### 9. Koordinator Sarana, Prasarana, dan Lingkungan','a. Mengidentifikasi kondisi dan kebutuhan sarana, prasarana, aksesibilitas, keselamatan, serta lingkungan belajar.','b. Menyusun rekomendasi prioritas pemeliharaan dan pengembangan fasilitas sesuai kebutuhan pembelajaran.','c. Memantau perkembangan tindak lanjut perbaikan bersama unit terkait tanpa mengambil alih proses pengadaan.','Hasil kerja: Peta kebutuhan fasilitas, skala prioritas, dan laporan tindak lanjut sarana prasarana.',
+  '### 10. Koordinator Perencanaan Program dan Anggaran','a. Mengonsolidasikan rekomendasi prioritas dari seluruh bidang menjadi usulan pengembangan sekolah.','b. Menyusun matriks usulan program yang memuat tujuan, indikator keberhasilan, penanggung jawab, waktu, dan estimasi kebutuhan sumber daya.','c. Menyampaikan usulan sebagai bahan penyusunan atau penyesuaian RKT dan RKAS melalui mekanisme serta pejabat yang berwenang.','Hasil kerja: Matriks rencana pengembangan dan peningkatan mutu serta usulan prioritas untuk RKT/RKAS.',
+  '### 11. Koordinator Pemantauan, Evaluasi, dan Tindak Lanjut','a. Menyusun indikator, instrumen, jadwal, dan mekanisme pemantauan program peningkatan mutu.','b. Menghimpun bukti keterlaksanaan dan capaian program, termasuk hambatan dan risiko yang ditemukan.','c. Mengoordinasikan evaluasi lintas bidang dan merumuskan rekomendasi korektif untuk siklus berikutnya.','Hasil kerja: Instrumen pemantauan, laporan evaluasi program, dan matriks tindak lanjut.',
+  '## C. MEKANISME KERJA TERPADU',
+  '1. Awal siklus: memetakan mutu berdasarkan Rapor Pendidikan dan data sekolah, menentukan masalah prioritas, serta menyusun analisis akar masalah.','2. Perencanaan: merumuskan target, indikator keberhasilan, program pengembangan, dan kebutuhan sumber daya sebagai bahan perencanaan sekolah.','3. Pelaksanaan: memfasilitasi koordinasi dan pendampingan tindak lanjut; pelaksanaan teknis tetap menjadi tanggung jawab unit atau pelaksana program terkait.','4. Pemantauan: melakukan peninjauan berkala terhadap pelaksanaan program, bukti kegiatan, capaian indikator, dan hambatan.','5. Evaluasi dan tindak lanjut: menyusun rekomendasi perbaikan, melaporkan hasil sekurang-kurangnya setiap semester, dan menggunakan temuan untuk siklus berikutnya.',
+  '## D. BATAS KEWENANGAN DAN KOORDINASI',
+  '1. Fungsi perencanaan dan pengembangan sekolah diintegrasikan dalam siklus kerja SPMI; tidak dibentuk TPS sebagai tim tersendiri melalui lampiran ini.','2. Tim SPMI menyampaikan rekomendasi kepada Kepala Sekolah dan berkoordinasi dengan wakil kepala sekolah, guru, tenaga kependidikan, komite sekolah, Tim BOS, serta pelaksana pengadaan barang/jasa sesuai kebutuhan dan kewenangannya.','3. Penyusunan dan pengesahan RKT/RKAS, pelaksanaan anggaran, serta pengadaan barang/jasa tetap mengikuti prosedur dan penanggung jawab yang berwenang.','4. Pemantauan dan evaluasi dilakukan secara berbasis bukti dan melibatkan penelaahan lintas bidang agar hasil evaluasi tidak hanya bergantung pada pelaksana program.',
+  '## E. DOKUMEN HASIL KERJA',
+  'Dokumen minimal meliputi program kerja SPMI, analisis Rapor Pendidikan dan data sekolah, peta masalah prioritas, matriks usulan program pengembangan dan indikator keberhasilan, notula koordinasi, instrumen pemantauan, laporan evaluasi semester, dan matriks tindak lanjut.'].join('\n')}]},
 
 /* ===== 4. Tim Adiwiyata ===== */
 {...umum,tpl:'adiwiyata',nama:'Tim Adiwiyata',nomor:'400.3/……/SMPN 5/XI/2026',tgl:'',

@@ -1,5 +1,5 @@
 /* Planner Devy — service worker: utamakan jaringan, pakai cache kalau offline */
-const C="pdv-v36";
+const C="pdv-v37";
 self.addEventListener("install",e=>{self.skipWaiting();e.waitUntil(caches.open(C).then(c=>c.addAll(["./","index.html","app.css","js/store.js","js/planner.js","js/stiker-ekstra.js","teacher.html","wakasek.html","jspdf.js","devy.png","home.png","rp_logo_kota.jpg","rp_logo_smp.jpg","favicon.png","kop.png"]).catch(()=>{})))});
 self.addEventListener("activate",e=>e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==C).map(x=>caches.delete(x)))).then(()=>self.clients.claim())));
 self.addEventListener("fetch",e=>{const u=new URL(e.request.url);if(e.request.method!=="GET"||u.origin!==location.origin)return;
