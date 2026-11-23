@@ -2750,6 +2750,8 @@ const skCur=()=>get('sk',UI.skId);
 const skV=d=>Object.assign({},SK_DEF,d||{});
 const skNip=s=>String(s||'').replace(/\D/g,'');
 const skTgl=d=>d?tglL(d):'……';
+const skNo=d=>d&&d.ikutSKBM?(S.cfg.noSK||'……'):(d&&d.nomor)||'';
+const skTglD=d=>d&&d.tgl?tglL(d.tgl):(d&&d.ikutSKBM&&S.cfg.tglSK)||'……';
 function skCariNip(nip){const n=skNip(nip);if(!n)return null;return [...guruList(),...all('tendik')].find(g=>skNip(g.nip)===n)||null}
 function skDinasDefault(g){if(!g)return '';if(get('tendik',g.id))return g.jabatan||'Tenaga Kependidikan';if(isKepsek&&isKepsek(g))return 'Kepala Sekolah';
   const k=String(g.mapelUtama||'').replace(/^m_/,'');const m=get('mapel',g.mapelUtama);return 'Guru '+(SK_MP[k]||(m&&m.kode==='INF'?'TIK':m?.nama)||'')}
@@ -2795,8 +2797,8 @@ function skMarkup(t){const L=String(t||'').split('\n');let h='',tbl=[],lst=[];
     else h+=`<p style="text-align:justify;margin:0 0 6px 18px">${esc(s)}</p>`});
   fT();fL();return h}
 function skTtd(d,dgnTempat){const ks=kepsekGuru()||{};const nm=d.ttdNama||S.cfg.kepsek||ks.nama||'';const nip=d.ttdNip||S.cfg.nipKepsek||ks.nip||'';
-  return `<div class="ttd" style="page-break-inside:avoid"><div style="min-width:300px">${dgnTempat?`<table class="nb skt" style="width:auto;margin:0"><tr><td style="padding:0">Ditetapkan di</td><td style="padding:0 4px">:</td><td style="padding:0">${esc(d.tempat||'')}</td></tr><tr><td style="padding:0">Pada tanggal</td><td style="padding:0 4px">:</td><td style="padding:0">${esc(skTgl(d.tgl))}</td></tr></table><div style="border-top:1px solid #000;margin:2px 0 4px"></div>`:''}${skBr(d.ttdJab)}${ttdBlok(TTDON())}${esc(nm)}<br>NIP. ${esc(nip)}</div></div>`}
-function skLampHead(d,no){return `<table class="nb skt" style="width:auto;margin:0 0 10px">${[['Lampiran '+no,d.lampKet],['Nomor',d.nomor||'……'],['Tanggal',skTgl(d.tgl)]].map(([a,b])=>`<tr><td style="padding:0 4px 0 0;min-width:86px">${esc(a)}</td><td style="padding:0 4px">:</td><td style="padding:0">${esc(b)}</td></tr>`).join('')}</table>`}
+  return `<div class="ttd" style="page-break-inside:avoid"><div style="min-width:300px">${dgnTempat?`<table class="nb skt" style="width:auto;margin:0"><tr><td style="padding:0">Ditetapkan di</td><td style="padding:0 4px">:</td><td style="padding:0">${esc(d.tempat||'')}</td></tr><tr><td style="padding:0">Pada tanggal</td><td style="padding:0 4px">:</td><td style="padding:0">${esc(skTglD(d))}</td></tr></table><div style="border-top:1px solid #000;margin:2px 0 4px"></div>`:''}${skBr(d.ttdJab)}${ttdBlok(TTDON())}${esc(nm)}<br>NIP. ${esc(nip)}</div></div>`}
+function skLampHead(d,no){return `<table class="nb skt" style="width:auto;margin:0 0 10px">${[['Lampiran '+no,d.lampKet],['Nomor',skNo(d)||'……'],['Tanggal',skTglD(d)]].map(([a,b])=>`<tr><td style="padding:0 4px 0 0;min-width:86px">${esc(a)}</td><td style="padding:0 4px">:</td><td style="padding:0">${esc(b)}</td></tr>`).join('')}</table>`}
 const skJudulL=t=>String(t||'').split('\n').filter(x=>x.trim()).map(x=>`<p class="ttl">${esc(x)}</p>`).join('');
 function skDiktum(d){const out=[];lines(d.diktum).forEach(x=>{if(x.startsWith('>')&&out.length)out[out.length-1].push(x.slice(1).trim());else out.push([x])});return out}
 function skNomorLamp(d){const n={};let i=0;if((d.anggota||[]).length)n.susunan=SK_ROM[i++];if((d.tugas||[]).length)n.tugas=SK_ROM[i++];n.lain=(d.lampLain||[]).map(()=>SK_ROM[i++]);return n}
@@ -2804,7 +2806,7 @@ function gSKTim(d0){const d=skV(d0);const N=skNomorLamp(d);const pages=[];
   const blok=(lbl,inner)=>`<tr><td style="width:104px">${lbl}</td><td style="width:10px">:</td><td>${inner}</td></tr>`;
   const mn=lines(d.menimbang),mg=lines(d.mengingat),mp=lines(d.memperhatikan),tb=lines(d.tembusan);
   const dk=skDiktum(d).map((ps,i)=>blok(SK_ORD[i]||String(i+1),ps.map((p,j)=>{const m=j>0&&p.match(/^(.+?)\s+:\s+(.+)$/);return m?`<table class="nb skt" style="width:auto;margin:0 0 0 0"><tr><td style="padding:0 6px 0 0;min-width:170px">${esc(m[1])}</td><td style="padding:0 4px">:</td><td style="padding:0">${esc(m[2])}</td></tr></table>`:`<div style="text-align:justify;margin:${j?'3px':'0'} 0 0">${esc(p)}</div>`}).join(''))).join('');
-  pages.push(`${kopHtml()}<p class="ttl">KEPUTUSAN ${esc(d.penetap)}</p><p class="c" style="margin:0">NOMOR: ${esc(d.nomor||'……')}</p>
+  pages.push(`${kopHtml()}<p class="ttl">KEPUTUSAN ${esc(d.penetap)}</p><p class="c" style="margin:0">NOMOR: ${esc(skNo(d)||'……')}</p>
    <p class="ttl" style="margin-top:10px">TENTANG</p><p class="ttl" style="margin:2px 30px 0">${esc(d.judul)}</p>
    <p class="ttl" style="margin:12px 0 8px">${esc(d.pembuka)}</p>
    <table class="nb skt">${mn.length?blok('Menimbang',skList(mn,i=>String.fromCharCode(97+i)+'.')):''}${mg.length?blok('Mengingat',skList(mg,i=>(i+1)+'.')):''}${mp.length?blok('Memperhatikan',skList(mp,i=>(i+1)+'.')):''}</table>
@@ -2827,12 +2829,12 @@ function skSinkronTT(){const d=skCur();if(!d)return;const K=d.kategori||'POKJA';
   confirmBox(`Catat ${A.length} anggota <b>${esc(nm)}</b> ke menu Tugas Tambahan (kategori ${esc(K)})? Peran mengikuti SK ini${ada.length?`; ${ada.length} catatan lama dengan nama yang sama akan diperbarui`:''}. Bisa dibatalkan dengan ↶ Urungkan.`,async()=>{
     if(!panList(K).includes(nm))panSimpanList([...panList(K),nm],K);
     const ids=new Set(A.map(a=>a.gid));for(const a of A){const ex=ada.find(t=>t.guruId===a.gid);const peran=a.peran||'Anggota';
-      if(ex){if(ex.peran!==peran)await put('tt',Object.assign({},ex,{peran}),{silent:true})}else await put('tt',{guruId:a.gid,kategori:K,jenis:nm,peran,jam:'',ket:'SK '+(d.nomor||'')},{silent:true})}
+      if(ex){if(ex.peran!==peran)await put('tt',Object.assign({},ex,{peran}),{silent:true})}else await put('tt',{guruId:a.gid,kategori:K,jenis:nm,peran,jam:'',ket:'SK '+(skNo(d)||'')},{silent:true})}
     for(const t of ada)if(!ids.has(t.guruId))await del('tt',t.id);
     skSimpan(Object.assign({},d,{sinkron:Date.now()}),true);toast('Anggota tercatat di Tugas Tambahan')},'Catat')}
 function skSuratTugas(){const d=skCur();if(!d)return;const A=(d.anggota||[]).filter(a=>a.gid&&orang(a.gid)&&!/penanggung jawab|pembina|pengarah/i.test(a.peran||''));
   suBaru({kegiatan:d.nama||'',orang:A.map(a=>a.gid),peran:Object.fromEntries(A.map(a=>[a.gid,a.peran||''])),mode:'kolektif',
-    dasar:`Keputusan ${skV(d).lampKet.replace(/^Keputusan\s+/,'')} Nomor ${d.nomor||'……'} tanggal ${skTgl(d.tgl)} tentang ${skJudulKalimat(d.judul)}`,
+    dasar:`Keputusan ${skV(d).lampKet.replace(/^Keputusan\s+/,'')} Nomor ${skNo(d)||'……'} tanggal ${skTglD(d)} tentang ${skJudulKalimat(d.judul)}`,
     untuk:`Melaksanakan tugas sebagai anggota ${d.nama||'tim'} sesuai dengan peran masing-masing.`,tglSurat:d.tgl||undefined});location.hash='#surat'}
 
 /* ---------- editor ---------- */
@@ -2861,7 +2863,7 @@ function skBuat(){const d0=skCur();
    <div class="card"><h3>Identitas SK</h3><div class="form">
     ${f('nama','Nama singkat (untuk daftar & Tugas Tambahan)','mis. Tim SSK')}<label>Kategori di Tugas Tambahan<select onchange="skSet('kategori',this.value,1)">${['POKJA','Kepanitiaan'].map(k=>`<option ${d.kategori===k?'selected':''}>${k}</option>`).join('')}</select></label>
     <label class="full">Tentang (judul SK)<textarea rows="2" onchange="skSet('judul',this.value.trim(),1)">${esc(d.judul)}</textarea></label>
-    ${f('nomor','Nomor SK','400.3/…/SMPN 5/XI/2026')}<label>Tanggal ditetapkan<input type="date" value="${esc(d.tgl||'')}" onchange="skSet('tgl',this.value,1)"></label>
+    ${d.ikutSKBM?`<label>Nomor SK<input value="${esc(S.cfg.noSK||'')}" disabled title="Ikut nomor SK Pembagian Tugas (SKBM)"></label>`:f('nomor','Nomor SK','400.3/…/SMPN 5/XI/2026')}<label>Tanggal ditetapkan<input type="date" value="${esc(d.tgl||'')}" onchange="skSet('tgl',this.value,1)"></label><label class="full small" style="flex-direction:row;align-items:center;gap:6px"><input type="checkbox" style="width:auto" ${d.ikutSKBM?'checked':''} onchange="skSet('ikutSKBM',this.checked,1)"> Nomor ikut SK Pembagian Tugas (SKBM)${S.cfg.noSK?`: <b>${esc(S.cfg.noSK)}</b>`:' — isi dulu di Tugas Tambahan → Nomor & tanggal SK'}. Bila tanggal dikosongkan, tanggal SKBM (${esc(S.cfg.tglSK||'belum diisi')}) yang dipakai.</label>
     ${f('tempat','Ditetapkan di','Tangerang')}${f('penetap','Penetap (baris KEPUTUSAN …)','KEPALA SMP NEGERI 5 TANGERANG')}
     ${f('pembuka','Baris sebelum Menimbang','PLT. KEPALA SMP NEGERI 5 TANGERANG,','',1)}
     <label class="full">Jabatan penanda tangan <span class="small muted">(boleh 2 baris)</span><textarea rows="2" onchange="skSet('ttdJab',this.value,1)">${esc(d.ttdJab)}</textarea></label>
@@ -2889,7 +2891,7 @@ function skBuat(){const d0=skCur();
   <h3 style="margin:14px 0 6px">Pratinjau</h3>${docPreview(gSKTim(d))}`}
 function skDaftar(){const L=skAll();const sisa=SK_TPL().filter(t=>{const x=L.find(y=>y.tpl===t.tpl);return !x||(+x.tplVer||1)<(+t.tplVer||1)}).length;
   return `<div class="bar"><button class="btn p" onclick="skBaru()">+ SK baru (kosong)</button><button class="btn" onclick="skTplModal()">＋ Masukkan SK bawaan${sisa?` (${sisa})`:''}</button><span class="small muted">SK di sini terpisah dari SK Pembagian Tugas (menu Tugas Tambahan → SK & Lampiran).</span></div>
-  ${L.length?`<div class="tw"><table><thead><tr><th>No</th><th>Nama</th><th>Tentang</th><th>Nomor</th><th>Tanggal</th><th class="n">Anggota</th><th></th></tr></thead><tbody>${L.map((d,i)=>`<tr><td class="c muted">${i+1}</td><td><b>${esc(d.nama||'')}</b></td><td class="small" style="max-width:380px">${esc(d.judul||'')}</td><td class="small">${esc(d.nomor||'')}</td><td class="small">${esc(skTgl(d.tgl))}</td><td class="n">${(d.anggota||[]).length}</td>
+  ${L.length?`<div class="tw"><table><thead><tr><th>No</th><th>Nama</th><th>Tentang</th><th>Nomor</th><th>Tanggal</th><th class="n">Anggota</th><th></th></tr></thead><tbody>${L.map((d,i)=>`<tr><td class="c muted">${i+1}</td><td><b>${esc(d.nama||'')}</b></td><td class="small" style="max-width:380px">${esc(d.judul||'')}</td><td class="small">${esc(skNo(d)||'')}</td><td class="small">${esc(skTglD(d))}</td><td class="n">${(d.anggota||[]).length}</td>
    <td style="white-space:nowrap"><button class="btn sm p" onclick="UI.skId='${d.id}';UI.tab.sk='buat';render()">Buka</button> <button class="btn sm" onclick="skDuplikat('${d.id}')">Duplikat</button> <button class="btn sm d" onclick="skHapus('${d.id}')">Hapus</button></td></tr>`).join('')}</tbody></table></div>`:`<div class="card empty">Belum ada SK. Klik <b>＋ Masukkan SK bawaan</b> untuk memasukkan SK yang sudah disusun (SSK, GSS, LCC, Perpustakaan, SPMI, Adiwiyata, Lab IPA, Lab Komputer), atau buat yang baru.</div>`}`}
 function skTplModal(){const L=skAll();const T=SK_TPL();const cari=t=>L.find(x=>x.tpl===t.tpl);const baru=t=>{const x=cari(t);return x&&(+x.tplVer||1)<(+t.tplVer||1)};
   openModal(`<h2>Masukkan SK bawaan</h2><p class="small muted">Nama, NIP, dan pangkat anggota dicocokkan dengan data Guru & DUK berdasarkan NIP. SK bertanda <b>versi final</b> akan menimpa isi SK lama dengan nama yang sama (bisa dibatalkan dengan ↶ Urungkan).</p>
@@ -3149,7 +3151,7 @@ return [
   'Dokumen minimal meliputi program kerja SPMI, analisis Rapor Pendidikan dan data sekolah, peta masalah prioritas, matriks usulan program pengembangan dan indikator keberhasilan, notula koordinasi, instrumen pemantauan, laporan evaluasi semester, dan matriks tindak lanjut.'].join('\n')}]},
 
 /* ===== 4. Tim Adiwiyata ===== */
-{...umum,tpl:'adiwiyata',nama:'Tim Adiwiyata',nomor:'400.3/……/SMPN 5/XI/2026',tgl:'',
+{...umum,tpl:'adiwiyata',tplVer:2,ikutSKBM:true,nama:'Tim Adiwiyata',nomor:'400.3/……/SMPN 5/XI/2026',tgl:'',
  judul:'PEMBENTUKAN TIM ADIWIYATA SMP NEGERI 5 TANGERANG TAHUN PELAJARAN 2026/2027',
  menimbang:['bahwa SMP Negeri 5 Tangerang telah meraih predikat Sekolah Adiwiyata Mandiri pada tahun 2017 dan perlu mempertahankan serta mengembangkan Gerakan Peduli dan Berbudaya Lingkungan Hidup di Sekolah (PBLHS) secara berkelanjutan;',
   'bahwa sebagai Sekolah Adiwiyata Mandiri, SMP Negeri 5 Tangerang perlu melaksanakan pembinaan dan pengimbasan Gerakan PBLHS kepada sekolah lain;',
@@ -3184,7 +3186,7 @@ return [
   {jab:'Anggota (Konservasi Energi)',uraian:'Mengampanyekan hemat listrik dan air; memantau penggunaan energi di kelas dan ruang-ruang sekolah.'}]},
 
 /* ===== 5. Pengelola Laboratorium IPA ===== */
-{...umum,tpl:'labipa',nama:'Pengelola Laboratorium IPA',nomor:'400.3/……/SMPN 5/XI/2026',tgl:'',
+{...umum,tpl:'labipa',tplVer:2,ikutSKBM:true,nama:'Pengelola Laboratorium IPA',nomor:'400.3/……/SMPN 5/XI/2026',tgl:'',
  judul:'PENGELOLA LABORATORIUM IPA SMP NEGERI 5 TANGERANG TAHUN PELAJARAN 2026/2027',
  menimbang:'bahwa laboratorium IPA merupakan sarana penunjang pembelajaran untuk kegiatan praktikum dan pengembangan keterampilan proses sains peserta didik;\nbahwa agar laboratorium IPA dapat dimanfaatkan secara tertib, aman, dan optimal, perlu ditetapkan pengelola laboratorium IPA;\nbahwa berdasarkan pertimbangan sebagaimana dimaksud pada huruf a dan huruf b, perlu menetapkan Keputusan Kepala SMP Negeri 5 Tangerang tentang Pengelola Laboratorium IPA Tahun Pelajaran 2026/2027;',
  mengingat:LAB_DASAR,
@@ -3210,7 +3212,7 @@ return [
   {jab:'Laboran / Teknisi',uraian:'Menyiapkan alat dan bahan praktikum; merawat, membersihkan, dan menyimpan alat; mengelola penyimpanan bahan kimia secara aman; mencatat inventaris dan kondisi alat.'}]},
 
 /* ===== 6. Pengelola Laboratorium Komputer ===== */
-{...umum,tpl:'labkom',nama:'Pengelola Laboratorium Komputer',nomor:'400.3/……/SMPN 5/XI/2026',tgl:'',
+{...umum,tpl:'labkom',tplVer:2,ikutSKBM:true,nama:'Pengelola Laboratorium Komputer',nomor:'400.3/……/SMPN 5/XI/2026',tgl:'',
  judul:'PENGELOLA LABORATORIUM KOMPUTER SMP NEGERI 5 TANGERANG TAHUN PELAJARAN 2026/2027',
  menimbang:'bahwa laboratorium komputer merupakan sarana penunjang pembelajaran TIK, Koding dan Kecerdasan Artifisial, serta pelaksanaan asesmen berbasis komputer;\nbahwa agar laboratorium komputer dapat dimanfaatkan secara tertib, aman, dan optimal, perlu ditetapkan pengelola laboratorium komputer;\nbahwa berdasarkan pertimbangan sebagaimana dimaksud pada huruf a dan huruf b, perlu menetapkan Keputusan Kepala SMP Negeri 5 Tangerang tentang Pengelola Laboratorium Komputer Tahun Pelajaran 2026/2027;',
  mengingat:LAB_DASAR,

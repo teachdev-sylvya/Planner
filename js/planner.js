@@ -197,7 +197,7 @@ const PAGES={
   keuangan:{title:"Keuangan",tab:"#1f7a5a",icon:"💰"},
   catatan:{title:"Catatan",tab:"#c95b8e",icon:"📝"},
   teacher:{title:"Teacher Dev",tab:"#2a9d8f",icon:"🧪",app:"teacher.html?v=30"},
-  wkapp:{title:"Sistem Kurikulum",tab:"#5b4590",icon:"📋",app:"wakasek.html?v=37"}
+  wkapp:{title:"Sistem Kurikulum",tab:"#5b4590",icon:"📋",app:"wakasek.html?v=38"}
 };
 function pageKey(pg){if(pg&&pg.cv)return pg.p+"~sampul";if(pg&&pg.x)return pg.p+"~"+pg.x;return pageKeyBase0(pg)}
 function pageKeyBase0(pg){
