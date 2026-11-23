@@ -2866,7 +2866,7 @@ const NAV=[
   ['Beranda',[['dashboard','◧','Dasbor']],'#9fd4c0'],
   ['Data Sekolah',[['siswa','◔','Siswa'],['guru','◑','Guru & DUK'],['kelas','▤','Kelas & Rombel'],['mapel','▦','Mata Pelajaran']],'#8ec5ff'],
   ['Tugas & Jadwal',[['tugas','⇄','Pembagian Tugas'],['jadwal','▥','Jadwal Pelajaran'],['tt','✦','Tugas Tambahan & Kepanitiaan'],['abk','⚖','Analisis Beban Kerja'],['surat','✉','Surat Tugas'],['pengganti','↺','Guru Pengganti']],'#f5c97a'],
-  ['Penilaian',[['nilai','✎','Nilai & Leger'],['rapor','✍','Nilai Rapor Kelas IX'],['ujian','▣','Perangkat Ujian']],'#f4a3a3'],
+  ['Penilaian',[['nilai','✎','Nilai & Leger'],['rapor','✍','Nilai Rapor Kelas IX'],['ujian','▣','Perangkat Ujian'],['rpel','❏','Rapor Pelengkap']],'#f4a3a3'],
   ['Supervisi & Mutu',[['supervisi','★','Supervisi & Kinerja'],['perangkat','☑','Perangkat Ajar']],'#c7b3f5'],
   ['Kegiatan & Program',[['agenda','◷','Kalender Akademik'],['kokurikuler','✿','Kokurikuler'],['proker','◎','Program Kerja']],'#a8dba0'],
   ['Cetak',[['cetak','🖨','Cetak & Simpan']],'#f0b6d0'],
@@ -2877,7 +2877,107 @@ function navToggle(i){NAV_TUTUP[i]=!NAV_TUTUP[i];try{localStorage.setItem('navTu
 function navHtml(r){return NAV.map((g,i)=>{const aktif=g[1].some(x=>x[0]===r),tutup=NAV_TUTUP[i]&&!aktif,satu=g[1].length===1;
   const isi=g[1].map(x=>`<a href="#${x[0]}" class="${x[0]===r?'on':''}" style="--gc:${g[2]}"><i>${x[1]}</i>${x[2]}</a>`).join('');
   return satu?`<div class="nav-grp">${isi}</div>`:`<div class="nav-grp${tutup?' tutup':''}" style="--gc:${g[2]}"><button class="nav-g" onclick="navToggle(${i})" aria-expanded="${!tutup}"><span class="dot"></span>${g[0]}<span class="cr">${tutup?'▸':'▾'}</span></button><div class="nav-isi">${isi}</div></div>`}).join('')}
-const VIEWS={abk:vABK,surat:vSurat,cetak:vCetak,panitia:()=>guruList().length?ttPanitia():'<div class="card empty">Tambahkan data <a href="#guru">Guru</a> dulu.</div>',rapor:vRapor,ujian:vUjian,tt:vTT,dashboard:vDashboard,siswa:vSiswa,guru:vGuru,kelas:vKelas,mapel:vMapel,tugas:vTugas,jadwal:vJadwal,nilai:vNilai,supervisi:vSupervisi,perangkat:vPerangkat,agenda:()=>crudView('agenda'),kokurikuler:()=>`<div class="card small" style="background:var(--pri2);border-color:#cfe2da">Kokurikuler (pengganti P5) dapat berupa pembelajaran kolaboratif lintas disiplin, Gerakan 7 Kebiasaan Anak Indonesia Hebat, atau cara lain, dan dirancang untuk mengembangkan 8 dimensi profil lulusan.</div>`+crudView('kokurikuler'),proker:()=>crudView('proker'),pengganti:()=>crudView('pengganti'),pengaturan:vPengaturan};
+/* ============================ RAPOR PELENGKAP ============================ */
+const RPEL_DEF={tglDiterima:'13 Juli 2026',tempatTtd:'Tangerang',tglTtd:'13 Juli 2026',kepsek:'',nip:'',sekolah:'SMP NEGERI 5 TANGERANG',npsn:'20606754',nss:'201026403020',alamat:'Jl. Daan Mogot No. 82',kel:'Tanah Tinggi',kec:'Kec. Tangerang',kota:'Kota Tangerang',prov:'Prov. Banten',web:'http://www.smpn5kotatangerang.sch.id',email:'smp5kotatangerang@gmail.com',kemen:'KEMENTERIAN PENDIDIKAN, KEBUDAYAAN, RISET DAN TEKNOLOGI'};
+const RPC=()=>Object.assign({},RPEL_DEF,S.cfg.rpel||{});
+const RP_F=[['status','Status dalam keluarga','mis. Anak kandung'],['anakKe','Anak ke',''],['telp','Nomor telepon rumah (peserta didik)',''],['asal','Sekolah asal',''],['ayah','Nama ayah',''],['ibu','Nama ibu',''],['alamatOrtu','Alamat orang tua',''],['telpOrtu','Nomor telepon orang tua',''],['kerjaAyah','Pekerjaan ayah',''],['kerjaIbu','Pekerjaan ibu',''],['wali','Nama wali',''],['alamatWali','Alamat wali',''],['telpWali','Nomor telepon wali',''],['kerjaWali','Pekerjaan wali','']];
+/* data dari Dapodik dipakai sebagai isian awal; yang diisi manual di aplikasi diutamakan */
+function rpVal(s){const x=s.rp||{};const d={ayah:s.ortu||'',alamatOrtu:s.alamat||'',telpOrtu:s.hp||''};const o={};RP_F.forEach(([k])=>o[k]=(x[k]!=null?x[k]:(d[k]||'')));return o}
+const rpTingkat=()=>{const U=UI.rpl=UI.rpl||{};return +U.t||7};
+const rpKelas=()=>kelasList().filter(k=>+k.tingkat===rpTingkat());
+const rpRom=t=>({7:'VII',8:'VIII',9:'IX'}[t]||t);
+const rpFn=s=>`${kk(get('kelas',s.kelasId))}_${String(absenOf(s)).padStart(2,'0')}_${fnSafe(String(s.nama).toUpperCase())}`;
+let _rpImg=null;
+async function rpImgs(){if(_rpImg)return _rpImg;const ld=async u=>{try{const r=await fetch(u);if(!r.ok)return null;const b=await r.blob();const src=await new Promise(ok=>{const f=new FileReader();f.onload=()=>ok(f.result);f.readAsDataURL(b)});const im=new Image();await new Promise(ok=>{im.onload=ok;im.onerror=ok;im.src=src});return {src,w:im.naturalWidth||1,h:im.naturalHeight||1}}catch(e){return null}};
+  _rpImg={kota:await ld('rp_logo_kota.jpg'),smp:await ld('rp_logo_smp.jpg')};return _rpImg}
+function pdfRpel(doc,s,I,first){const C=RPC();const v=rpVal(s);const W=215;const NM=String(s.nama||'').toUpperCase();const k=get('kelas',s.kelasId);
+  const F=(st,sz)=>{doc.setFont('helvetica',st);doc.setFontSize(sz)};const T=(t,x,y,o)=>doc.text(String(t==null?'':t),x,y,o||{});const CT=(t,y)=>T(t,W/2,y,{align:'center'});
+  const dots=(x1,x2,y)=>{doc.setLineDashPattern([.4,.8],0);doc.setLineWidth(.2);doc.line(x1,y,x2,y);doc.setLineDashPattern([],0)};
+  const isi=(t,x,y,w,lh)=>{const L=doc.splitTextToSize(String(t||''),w);L.forEach((ln,i)=>T(ln,x,y+i*lh));return Math.max(1,L.length)};
+  doc.setTextColor(0);doc.setDrawColor(0);
+  /* --- halaman 1: sampul --- */
+  if(!first)doc.addPage([215,330],'p');
+  if(I.kota){const w=46,h=w*I.kota.h/I.kota.w;doc.addImage(I.kota.src,'JPEG',(W-w)/2,24,w,h,'rpkota','FAST')}
+  F('bold',17);CT('SEKOLAH MENENGAH PERTAMA',96);CT('( SMP )',104);
+  if(I.smp){const w=50,h=w*I.smp.h/I.smp.w;doc.addImage(I.smp.src,'JPEG',(W-w)/2,122,w,h,'rpsmp','FAST')}
+  F('bold',12.5);CT('Nama Peserta Didik',196);doc.setLineWidth(.35);doc.rect(47,200,121,11);
+  let fs=13;F('bold',fs);while(doc.getTextWidth(NM)>116&&fs>8){fs-=.5;doc.setFontSize(fs)}CT(NM,207.6);
+  F('bold',12.5);CT('NISN / NIS',228);doc.rect(52,232,111,11);F('bold',13);CT(`${s.nisn||'-'} / ${s.nis||'-'}`,239.6);
+  F('bold',13.5);doc.splitTextToSize(C.kemen,150).forEach((ln,i)=>CT(ln,282+i*7));CT('REPUBLIK INDONESIA',282+doc.splitTextToSize(C.kemen,150).length*7+5);
+  /* --- halaman 2: identitas sekolah --- */
+  doc.addPage([215,330],'p');F('bold',13.5);CT('SEKOLAH MENENGAH PERTAMA',32);CT('( SMP )',39);
+  F('normal',11.5);let y=64;[['Nama Sekolah',C.sekolah],['NPSN',C.npsn],['NIS/NSS/NDS',C.nss],['Alamat Sekolah',C.alamat],['Kelurahan / Desa',C.kel],['Kecamatan',C.kec],['Kota/Kabupaten',C.kota],['Provinsi',C.prov],['Website',C.web],['E-mail',C.email]].forEach(([a,b])=>{T(a,30,y);T(':',72,y);const n=isi(b,76,y,110,5.5);y+=4.5+n*5.5});
+  /* --- halaman 3: identitas peserta didik --- */
+  doc.addPage([215,330],'p');F('bold',12.5);CT('IDENTITAS PESERTA DIDIK',24);
+  F('normal',11);y=40;const XN=20,XL=28,XC=92,XV=96,WV=W-XV-16,LH=5;
+  const row=(no,lab,val,sub)=>{if(no)T(no+'.',XN,y);T(lab,sub?XL+4:XL,y);T(':',XC,y);const n=isi(val,XV,y,WV,LH);y+=Math.max(8.2,n*LH+3.2)};
+  const tl=ttlSiswa(s);
+  row(1,'Nama Lengkap Peserta Didik',NM);row(2,'Nomor Induk/NISN',`${s.nis||'-'} / ${s.nisn||'-'}`);row(3,'Tempat, Tanggal Lahir',tl);
+  row(4,'Jenis Kelamin',s.jk==='P'?'Perempuan':s.jk==='L'?'Laki-laki':'');row(5,'Agama',s.agama||'');row(6,'Status dalam Keluarga',v.status);row(7,'Anak ke',v.anakKe);
+  row(8,'Alamat Peserta Didik',s.alamat||'');row(9,'Nomor Telepon Rumah',v.telp);row(10,'Sekolah Asal',v.asal);
+  row(11,'Diterima di sekolah ini','');row('','Di kelas',rpRom(k?.tingkat||rpTingkat()),true);row('','Pada tanggal',C.tglDiterima,true);
+  row(12,'Nama Orang Tua','');row('','a. Ayah',v.ayah,true);row('','b. Ibu',v.ibu,true);
+  row(13,'Alamat Orang Tua',v.alamatOrtu);row('','Nomor Telepon Rumah',v.telpOrtu,true);
+  row(14,'Pekerjaan Orang Tua','');row('','a. Ayah',v.kerjaAyah,true);row('','b. Ibu',v.kerjaIbu,true);
+  row(15,'Nama Wali Peserta Didik',v.wali);row(16,'Alamat Wali Peserta Didik',v.alamatWali);row('','Nomor Telepon Rumah',v.telpWali,true);row(17,'Pekerjaan Wali Peserta Didik',v.kerjaWali);
+  y=y+10;doc.setLineWidth(.3);doc.rect(52,y,30,40);F('normal',8.5);T('Pas foto',67,y+18,{align:'center'});T('3 x 4',67,y+23,{align:'center'});
+  F('normal',11);T(`${C.tempatTtd}, ${C.tglTtd}`,118,y+2);T('Kepala Sekolah,',118,y+8);
+  const KS=C.kepsek||S.cfg.kepsek||'',KN=C.nip||(C.kepsek?'':S.cfg.nipKepsek)||'';if(KS){F('bold',11);T(KS,118,y+34);const tw=doc.getTextWidth(KS);doc.setLineWidth(.25);doc.line(118,y+35,118+tw,y+35);F('normal',11);T('NIP. '+KN,118,y+40)}else{dots(118,185,y+34);T('NIP.',118,y+40)}
+  /* --- halaman 4: pindah keluar --- */
+  doc.addPage([215,330],'p');F('bold',12.5);CT('KETERANGAN PINDAH SEKOLAH',22);F('normal',11);T('Nama Peserta Didik',18,36);T(':',58,36);F('bold',11);T(NM,62,36);
+  let X=[18,40,64,104,197],Y0=44;doc.setLineWidth(.35);F('bold',10);
+  doc.rect(X[0],Y0,X[4]-X[0],7);CT('KELUAR',Y0+5);const Hh=16;doc.rect(X[0],Y0+7,X[4]-X[0],Hh);for(let i=1;i<4;i++)doc.line(X[i],Y0+7,X[i],Y0+7+Hh);
+  [['Tanggal'],['Kelas yang','ditinggalkan'],['Sebab-sebab Keluar','atau Atas Permintaan','(Tertulis)'],['Tanda Tangan Kepala Sekolah,','Stempel Sekolah, dan Tanda Tangan','Orang Tua/Wali']].forEach((L,i)=>{const cx=(X[i]+X[i+1])/2;L.forEach((t,j)=>T(t,cx,Y0+7+Hh/2-(L.length-1)*2+1+j*4.2,{align:'center'}))});
+  F('normal',10);let ry=Y0+7+Hh;const RH=80;
+  for(let r=0;r<3;r++){doc.rect(X[0],ry,X[4]-X[0],RH);for(let i=1;i<4;i++)doc.line(X[i],ry,X[i],ry+RH);const x=X[3]+5,x2=X[4]-5;
+    dots(x,x2,ry+9);T('Kepala Sekolah,',x,ry+15);dots(x,x2,ry+40);T('NIP.',x,ry+45);T('Orang Tua/Wali,',x,ry+54);dots(x,x2,ry+78);ry+=RH}
+  /* --- halaman 5: pindah masuk --- */
+  doc.addPage([215,330],'p');F('bold',12.5);CT('KETERANGAN PINDAH SEKOLAH',22);F('normal',11);T('Nama Peserta Didik',18,36);T(':',58,36);F('bold',11);T(NM,62,36);
+  X=[18,29,86,134,197];doc.setLineWidth(.35);F('bold',10);doc.rect(X[0],Y0,X[4]-X[0],8);doc.line(X[1],Y0,X[1],Y0+8);T('NO',(X[0]+X[1])/2,Y0+5.5,{align:'center'});T('MASUK',(X[1]+X[4])/2,Y0+5.5,{align:'center'});
+  F('normal',10);ry=Y0+8;const RM=82;
+  for(let r=0;r<3;r++){doc.rect(X[0],ry,X[4]-X[0],RM);for(let i=1;i<4;i++)doc.line(X[i],ry,X[i],ry+RM);
+    const it=[['1.','Nama Siswa'],['2.','Nomor Induk'],['3.','Nama Sekolah'],['4.','Masuk di Sekolah ini :'],['','a. Tanggal'],['','b. Di Kelas'],['5.','Tahun Pelajaran']];
+    it.forEach(([n,l],i)=>{const yy=ry+9+i*9;if(n)T(n,X[0]+3,yy);T(l,X[1]+3,yy);if(i!==3)dots(X[2]+3,X[3]-3,yy+1)});
+    const x=X[3]+5,x2=X[4]-5;dots(x,x2,ry+9);T('Kepala Sekolah,',x,ry+15);dots(x,x2,ry+44);T('NIP.',x,ry+49);ry+=RM}
+}
+async function rpelBuf(list){await loadJsPDF();const I=await rpImgs();const {jsPDF}=window.jspdf;const doc=new jsPDF({unit:'mm',format:[215,330],compress:true});list.forEach((s,i)=>pdfRpel(doc,s,I,i===0));return doc.output('arraybuffer')}
+function rpCetakBuf(buf){const u=URL.createObjectURL(new Blob([buf],{type:'application/pdf'}));
+  if(/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent)){const w=window.open(u,'_blank');if(!w)location.href=u;toast('PDF dibuka. Cetak lewat menu ⋮ → Cetak / Bagikan → Cetak.');return}
+  let f=document.getElementById('rpPrintFrame');if(f)f.remove();f=document.createElement('iframe');f.id='rpPrintFrame';f.style.cssText='position:fixed;right:0;bottom:0;width:1px;height:1px;border:0;opacity:0';
+  f.onload=()=>setTimeout(()=>{try{f.contentWindow.focus();f.contentWindow.print()}catch(e){window.open(u,'_blank')}},400);f.src=u;document.body.appendChild(f)}
+async function rpelAksi(aksi,id){try{
+    if(aksi==='cetak1'||aksi==='pdf1'){const s=get('siswa',id);if(!s)return;toast('Menyiapkan rapor pelengkap '+s.nama+'…');const buf=await rpelBuf([s]);
+      if(aksi==='cetak1')return rpCetakBuf(buf);if(!S.dl)return toast('Unduhan tidak tersedia di tampilan ini.');await S.dl.save({filename:rpFn(s)+'.pdf',data:buf,noPrompt:true});return toast('PDF tersimpan: '+rpFn(s)+'.pdf')}
+    const kid=UI.rpl.k;const k=get('kelas',kid);const ss=siswaKelas(kid);if(!ss.length)return toast('Belum ada siswa di kelas ini.');
+    if(aksi==='cetakK'){toast(`Menyiapkan ${ss.length} siswa…`);return rpCetakBuf(await rpelBuf(ss))}
+    if(!S.dl)return toast('Unduhan tidak tersedia di tampilan ini.');
+    if(aksi==='pdfK'){toast(`Menyiapkan ${ss.length} siswa…`);await S.dl.save({filename:`Rapor_Pelengkap_${kk(k)}.pdf`,data:await rpelBuf(ss),noPrompt:true});return toast('PDF satu kelas tersimpan')}
+    if(aksi==='zipK'){const files=[];for(let i=0;i<ss.length;i++){files.push({name:rpFn(ss[i])+'.pdf',data:await rpelBuf([ss[i]])});if(i%5===0)toast(`Membuat PDF ${i+1}/${ss.length}…`)}
+      await S.dl.save({filename:`Rapor_Pelengkap_${kk(k)}.zip`,data:buatZip(files)});return toast(`${files.length} PDF tersimpan dalam ZIP`)}
+  }catch(e){console.error(e);toast(e&&e.code==='declined'?'Unduhan dibatalkan':'Gagal membuat PDF'+(e&&e.message==='jspdf'?' (pustaka PDF tidak termuat)':''))}}
+function rpLengkap(s){const v=rpVal(s);return RP_F.filter(([k])=>['status','anakKe','asal','ayah','ibu','kerjaAyah','kerjaIbu'].includes(k)&&!String(v[k]||'').trim()).length}
+function rpEdit(id){const s=get('siswa',id);if(!s)return;const v=rpVal(s);
+  openModal(`<h2>Lengkapi data · ${esc(s.nama)}</h2><p class="small muted" style="margin-top:-4px">Tersimpan otomatis setiap kolom diisi. Salah isi bisa dibatalkan dengan ↶ Urungkan. Kolom kosong dicetak kosong (bisa ditulis tangan).${s.ortu?` Nama orang tua dari Dapodik (<b>${esc(s.ortu)}</b>) otomatis masuk ke kolom Ayah. Kalau itu nama ibu/wali, pindahkan.`:''}</p>
+  <div class="form">${RP_F.map(([k,l,ph])=>`<label>${esc(l)}<input value="${esc(v[k])}" placeholder="${esc(ph)}" onchange="rpSetF('${id}','${k}',this.value)"></label>`).join('')}</div>
+  <div class="mfoot"><button class="btn" style="color:var(--bad)" onclick="rpKosongkan('${id}')">Kosongkan isian manual</button><span class="sp"></span><button class="btn" onclick="rpelAksi('pdf1','${id}')">⬇ PDF</button><button class="btn" onclick="rpelAksi('cetak1','${id}')">🖨 Cetak</button><button class="btn p" onclick="closeModal();render()">Selesai</button></div>`,true)}
+function rpSetF(id,k,val){const s=get('siswa',id);if(!s)return;const o=clone(s);o.rp=Object.assign({},o.rp||{});o.rp[k]=String(val).trim();put('siswa',o,{silent:true});toast('Tersimpan')}
+function rpKosongkan(id){confirmBox('Kosongkan semua isian manual rapor pelengkap siswa ini? Data dari Dapodik tetap. Bisa dibatalkan dengan ↶ Urungkan.',()=>{const s=get('siswa',id);if(!s)return;const o=clone(s);delete o.rp;put('siswa',o);toast('Isian dikosongkan');setTimeout(()=>rpEdit(id),50)},'Kosongkan')}
+function rpSetModal(){const C=RPC();const f=(k,l)=>`<label>${esc(l)}<input id="rpc_${k}" value="${esc(C[k]??'')}"></label>`;
+  openModal(`<h2>Pengaturan Rapor Pelengkap</h2><div class="form">${f('tglDiterima','Tanggal diterima di sekolah ini')}${f('tempatTtd','Tempat tanda tangan')}${f('tglTtd','Tanggal tanda tangan')}${f('kepsek','Nama kepala sekolah (kosong = ikut Pengaturan sekolah)')}${f('nip','NIP kepala sekolah')}${f('sekolah','Nama sekolah')}${f('npsn','NPSN')}${f('nss','NIS/NSS/NDS')}${f('alamat','Alamat sekolah')}${f('kel','Kelurahan / Desa')}${f('kec','Kecamatan')}${f('kota','Kota/Kabupaten')}${f('prov','Provinsi')}${f('web','Website')}${f('email','E-mail')}${f('kemen','Nama kementerian (sampul)')}</div>
+  <div class="mfoot"><button class="btn" onclick="S.cfg.rpel={};saveCfg();closeModal();render();toast('Kembali ke isian bawaan')">Kembalikan bawaan</button><span class="sp"></span><button class="btn" onclick="closeModal()">Batal</button><button class="btn p" onclick="rpSetSimpan()">Simpan</button></div>`,true)}
+function rpSetSimpan(){const o={};Object.keys(RPEL_DEF).forEach(k=>{const e=document.getElementById('rpc_'+k);if(e)o[k]=e.value.trim()});S.cfg.rpel=o;saveCfg();closeModal();render();toast('Pengaturan tersimpan')}
+function vRpel(){const U=UI.rpl=UI.rpl||{};const t=rpTingkat();const kl=rpKelas();
+  const selT=`<select onchange="UI.rpl.t=+this.value;UI.rpl.k='';render()">${[7,8,9].map(x=>`<option value="${x}" ${x===t?'selected':''}>Kelas ${rpRom(x)}</option>`).join('')}</select>`;
+  if(!kl.length)return `<div class="bar">${selT}</div><div class="card empty">Belum ada kelas ${rpRom(t)}.</div>`;
+  if(!U.k||!get('kelas',U.k)||+get('kelas',U.k).tingkat!==t)U.k=kl[0].id;const ss=siswaKelas(U.k);const k=get('kelas',U.k);
+  const selK=`<select onchange="UI.rpl.k=this.value;render()">${kl.map(x=>`<option value="${x.id}" ${x.id===U.k?'selected':''}>${esc(x.nama)} (${siswaKelas(x.id).length})</option>`).join('')}</select>`;
+  const rows=ss.map((s,i)=>{const kur=rpLengkap(s);return `<tr><td class="c">${i+1}</td><td class="small">${esc(s.nisn||'-')}<br><span class="muted">${esc(s.nis||'-')}</span></td><td><b>${esc(s.nama)}</b><div class="small muted">${esc(ttlSiswa(s))}</div></td><td class="c">${esc(s.jk||'')}</td><td class="small">${kur?`<span class="tag warn">${kur} isian kosong</span>`:'<span class="tag">lengkap</span>'}</td>
+    <td style="white-space:nowrap"><button class="btn" onclick="rpEdit('${s.id}')">✎ Lengkapi</button><button class="btn" onclick="rpelAksi('cetak1','${s.id}')">🖨 Cetak</button><button class="btn" onclick="rpelAksi('pdf1','${s.id}')">⬇ PDF</button></td></tr>`}).join('');
+  return `<div class="card small" style="background:var(--pri2);border-color:#cfe2da">Rapor pelengkap (sampul, identitas sekolah, identitas peserta didik, keterangan pindah keluar & masuk) untuk siswa aktif dari data Dapodik. Nomor absen urut nama. Nama file: <b>${esc(kk(k))}_${'01'}_NAMA_SISWA.pdf</b>. Isian yang tidak ada di Dapodik (anak ke, sekolah asal, nama ibu, pekerjaan, wali) bisa dilengkapi lewat <b>✎ Lengkapi</b>; kalau dibiarkan kosong, dicetak kosong untuk ditulis tangan.</div>
+  <div class="bar">${selT}${selK}<button class="btn" onclick="rpSetModal()">⚙ Pengaturan</button><span class="sp"></span><button class="btn p" onclick="rpelAksi('cetakK')">🖨 Cetak satu kelas</button><button class="btn" onclick="rpelAksi('zipK')">⬇ Simpan satu kelas (ZIP, PDF per anak)</button><button class="btn" onclick="rpelAksi('pdfK')">⬇ Simpan satu kelas (1 PDF)</button></div>
+  <div class="tw"><table><thead><tr><th>No</th><th>NISN / NIS</th><th>Nama</th><th>L/P</th><th>Data tambahan</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="6" class="empty">Belum ada siswa aktif.</td></tr>'}</tbody></table></div>`}
+
+const VIEWS={rpel:vRpel,abk:vABK,surat:vSurat,cetak:vCetak,panitia:()=>guruList().length?ttPanitia():'<div class="card empty">Tambahkan data <a href="#guru">Guru</a> dulu.</div>',rapor:vRapor,ujian:vUjian,tt:vTT,dashboard:vDashboard,siswa:vSiswa,guru:vGuru,kelas:vKelas,mapel:vMapel,tugas:vTugas,jadwal:vJadwal,nilai:vNilai,supervisi:vSupervisi,perangkat:vPerangkat,agenda:()=>crudView('agenda'),kokurikuler:()=>`<div class="card small" style="background:var(--pri2);border-color:#cfe2da">Kokurikuler (pengganti P5) dapat berupa pembelajaran kolaboratif lintas disiplin, Gerakan 7 Kebiasaan Anak Indonesia Hebat, atau cara lain, dan dirancang untuk mengembangkan 8 dimensi profil lulusan.</div>`+crudView('kokurikuler'),proker:()=>crudView('proker'),pengganti:()=>crudView('pengganti'),pengaturan:vPengaturan};
 function route(){const h=location.hash.replace('#','');if(h==='panitia'){UI.tab=UI.tab||{};UI.tab.tt='kelola';UI.grpK='Kepanitiaan';history.replaceState(null,'','#tt');return 'tt'}return VIEWS[h]?h:'dashboard'}
 function render(){
   setTimeout(undoBtns,0);
