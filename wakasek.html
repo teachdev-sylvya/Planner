@@ -954,11 +954,12 @@ function piketHitung(){const c=S.cfg,A=ATURAN();const hari=c.hari.filter(h=>h!==
   const alasan={};const ok=g=>{const tg=g.tugasTambahan||[];const k=tt.filter(t=>t.guruId===g.id).map(t=>t.kategori);
     if(/non-duk/i.test(g.status||''))return 'guru non-DUK';if(ks&&ks.id===g.id||tg.includes('Kepala Sekolah')||k.includes('Kepala Sekolah'))return 'kepala sekolah';
     if(noP.has(g.id))return 'dikecualikan';if(tg.includes('Wakil Kepala Sekolah')||k.includes('Wakil Kepala Sekolah'))return 'wakasek';
-    if(g.mapelUtama==='m_BK'||tg.includes('Layanan Bimbingan Konseling')||k.some(x=>/Layanan BK|Bimbingan/i.test(x)))return 'guru BK';
-    if(!(jpG[g.id]>0))return 'tidak mengajar / cuti';if(jpG[g.id]>=30)return 'mengajar '+jpG[g.id]+' JP';return ''};
+    const bk=g.mapelUtama==='m_BK'||tg.includes('Layanan Bimbingan Konseling')||k.some(x=>/Layanan BK|Bimbingan/i.test(x));
+    if(!bk&&!(jpG[g.id]>0))return 'tidak mengajar / cuti';if(jpG[g.id]>=30)return 'mengajar '+jpG[g.id]+' JP';return ''};
   const elig=[];all('guru').forEach(g=>{const a=ok(g);if(a)alasan[g.id]=a;else elig.push(g)});
   const lama={};hari.forEach(h=>(c.piket?.[h]||[]).forEach(id=>lama[id]=h));
-  const days=g=>hari.map((h,i)=>({h,i,jp:jpD[g.id+'@'+c.hari.indexOf(h)]||0})).filter(x=>x.jp>=1&&x.jp<=cap);
+  const isBK=g=>g.mapelUtama==='m_BK'||(g.tugasTambahan||[]).includes('Layanan Bimbingan Konseling')||tt.some(t=>t.guruId===g.id&&/Layanan BK|Bimbingan/i.test(t.kategori||''));
+  const days=g=>hari.map((h,i)=>({h,i,jp:jpD[g.id+'@'+c.hari.indexOf(h)]||0})).filter(x=>isBK(g)&&!(jpG[g.id]>0)?true:(x.jp>=1&&x.jp<=cap));
   elig.sort((a,b)=>((lama[a.id]?0:1)-(lama[b.id]?0:1))||((+a.urutDUK||999)-(+b.urutDUK||999)));
   const by={};hari.forEach(h=>by[h]=[]);const sisa=[];
     elig.forEach(g=>{const ds=days(g).filter(x=>by[x.h].length<per);if(!ds.length){sisa.push(g.id);return}
@@ -973,7 +974,7 @@ async function piketTerapkan(by){const c=S.cfg;S.cfg.piket=Object.fromEntries(c.
   const old=ttAll().filter(t=>t.kategori==='Piket Harian').map(t=>t.id);if(old.length)await bulkDel('tt',old);
   const baru=[];Object.entries(by).forEach(([h,ids])=>ids.forEach(g=>baru.push({guruId:g,kategori:'Piket Harian',jenis:'Piket Hari '+h,peran:'',jam:katDef('Piket Harian').jam,ket:'',berperan:'',nilai:''})));if(baru.length)await bulk('tt',baru)}
 function piketOtomatis(){const K=piketHitung();const ex=Object.entries(K.alasan);
-  openModal(`<h2>⚡ Susun piket otomatis</h2><p class="small muted">Aturan: ${+(S.cfg.aturan?.piketPerHari)||5} orang per hari, tiap guru sekali seminggu, urutan DUK diutamakan, petugas yang sudah ada dipertahankan bila masih memenuhi, dan hari piketnya bukan hari kosong mengajar serta mengajar paling banyak ${+(S.cfg.aturan?.piketMaksJP)||ATURAN().idealHarian||6} JP. Tidak piket: kepala sekolah, wakasek, guru BK, guru non-DUK, guru cuti/tidak mengajar, dan guru yang mengajar 30 JP atau lebih.</p>
+  openModal(`<h2>⚡ Susun piket otomatis</h2><p class="small muted">Aturan: ${+(S.cfg.aturan?.piketPerHari)||5} orang per hari, tiap guru sekali seminggu, urutan DUK diutamakan, petugas yang sudah ada dipertahankan bila masih memenuhi, dan hari piketnya bukan hari kosong mengajar serta mengajar paling banyak ${+(S.cfg.aturan?.piketMaksJP)||ATURAN().idealHarian||6} JP. Guru BK ikut piket. Tidak piket: kepala sekolah, wakasek, guru non-DUK, guru cuti/tidak mengajar, dan guru yang mengajar 30 JP atau lebih.</p>
   <div class="tw"><table><thead><tr>${K.hari.map(h=>`<th>${h} (${K.by[h].length})</th>`).join('')}</tr></thead><tbody>${Array.from({length:Math.max(...K.hari.map(h=>K.by[h].length),1)},(_,i)=>`<tr>${K.hari.map(h=>`<td class="small">${esc(K.by[h][i]?short(gNama(K.by[h][i])):'')}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
   ${K.kurang.length?`<div class="alert bad"><span>Kurang petugas: ${esc(K.kurang.join(', '))}</span></div>`:''}${K.sisa.length?`<p class="small">Tidak kebagian (kuota penuh atau tidak ada hari yang memenuhi): ${esc(K.sisa.map(g=>short(gNama(g))).join(', '))}</p>`:''}
   <details class="small"><summary>Tidak dipasang piket (${ex.length})</summary>${ex.map(([g,a])=>esc(short(gNama(g))+' – '+a)).join('<br>')}</details>
