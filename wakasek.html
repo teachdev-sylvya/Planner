@@ -906,7 +906,7 @@ function exportTugas(){const rows=[];let no=0;guruList().forEach(g=>{const b=beb
 /* ============================ CADANGAN / SKENARIO PEMBAGIAN TUGAS ============================ */
 const SKN_UTAMA='sk_utama';
 const sknAktif=()=>S.cfg.skAktif||SKN_UTAMA;
-const sknSnap=()=>({tugas:clone(S.data.tugas),jadwal:clone(S.data.jadwal),aturan:clone(S.cfg.aturan||{})});
+const sknSnap=()=>({tugas:clone(S.data.tugas),jadwal:clone(S.data.jadwal),aturan:clone(S.cfg.aturan||{}),piket:clone(S.cfg.piket||{}),ttPiket:Object.fromEntries(ttAll().filter(t=>t.kategori==='Piket Harian').map(t=>[t.id,clone(t)]))});
 const sknList=()=>all('skenario').sort((a,b)=>a.id===SKN_UTAMA?-1:b.id===SKN_UTAMA?1:(a.dibuat||0)-(b.dibuat||0));
 const sknTgl=t=>new Date(t).toLocaleString('id-ID',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
 const sknNama=id=>id===SKN_UTAMA?(get('skenario',id)?.nama||'Data utama (semester berjalan)'):(get('skenario',id)?.nama||'Cadangan');
@@ -917,7 +917,8 @@ async function sknBuka(id,tanpaKonfirmasi){const t=get('skenario',id);if(!t)retu
     const T=t.tugas||{},J=t.jadwal||{};const dT=Object.keys(S.data.tugas).filter(x=>!T[x]),dJ=Object.keys(S.data.jadwal).filter(x=>!J[x]);
     if(dT.length)await bulkDel('tugas',dT);if(dJ.length)await bulkDel('jadwal',dJ);
     await bulk('tugas',Object.values(clone(T)),'Memuat pembagian tugas');await bulk('jadwal',Object.values(clone(J)),'Memuat jadwal');
-    S.cfg.aturan=clone(t.aturan||{});S.cfg.skAktif=id;saveCfg();toast('Sekarang membuka: '+t.nama);render()};
+    if(t.ttPiket){const TP=t.ttPiket;const dP=ttAll().filter(x=>x.kategori==='Piket Harian'&&!TP[x.id]).map(x=>x.id);if(dP.length)await bulkDel('tt',dP);const ps=Object.values(clone(TP));if(ps.length)await bulk('tt',ps)}
+    if(t.piket)S.cfg.piket=clone(t.piket);S.cfg.aturan=clone(t.aturan||{});S.cfg.skAktif=id;saveCfg();toast('Sekarang membuka: '+t.nama);render()};
   if(tanpaKonfirmasi)return go();
   confirmBox(`Buka <b>${esc(t.nama)}</b>? Pembagian tugas, jadwal, dan aturan jadwal yang sedang terbuka (<b>${esc(sknNama(sknAktif()))}</b>) disimpan dulu ke cadangannya sendiri, jadi tidak hilang. Data lain (siswa, guru, nilai, SK) tidak berubah.`,go,'Buka')}
 function sknUbah(id){const t=get('skenario',id);if(!t)return;openModal(`<h2>Ubah cadangan</h2><div class="form"><label class="full">Nama<input id="snN" value="${esc(t.nama||'')}"></label><label class="full">Catatan<input id="snK" value="${esc(t.ket||'')}"></label></div><div class="mfoot"><button class="btn" onclick="closeModal()">Batal</button><button class="btn p" id="snGo">Simpan</button></div>`);
@@ -931,13 +932,54 @@ function sknJan27(o){const tl=Object.values(o.tugas);const f=(k,m)=>tl.find(t=>t
   ganti('k9J','m_MTK','g17','Pak Isdarmanto menjadi kepala sekolah');ganti('k9I','m_MTK','g38','Pak Isdarmanto menjadi kepala sekolah');
   ganti('k9H','m_PJOK','g48','Bu Lia menjadi wakasek kesiswaan');
   ['k7A','k7B','k8A','k8B','k8C','k8D','k8E','k8F'].forEach(k=>ganti(k,'m_PP','g46','Bu Ernawati kembali dari cuti'));
-  o.aturan=clone(o.aturan||{});o.aturan.blok=Object.assign({},o.aturan.blok||{});o.aturan.blok.g33=Object.assign({},o.aturan.blok.g33||{},{'0-1':1,'0-2':1,'0-3':1});log.push('Bu Lia kosong Senin jam ke-1–3');
+  o.aturan=clone(o.aturan||{});o.aturan.blok=Object.assign({},o.aturan.blok||{});o.aturan.blok.g33=Object.assign({},o.aturan.blok.g33||{},{'0-1':1,'0-2':1,'0-3':1});log.push('Bu Lia kosong Senin jam ke-1–3');o.aturan.noPiket=[...new Set([...(o.aturan.noPiket||[]),'g01','g33'])];log.push('Pak Isdarmanto & Bu Lia tidak piket');
   o.ket='Perubahan: '+log.join('; ');return log}
 async function sknBuatJan27(){const ada=sknList().find(x=>x.tpl==='jan27');if(ada)return sknBuka(ada.id);
   confirmBox('Buat cadangan <b>Januari 2027</b> dari data yang sedang terbuka, dengan perubahan: Pak Isdarmanto berhenti mengajar MTK (9J → Bu Yesi, 9I → Bu Okta); PJOK 9H Bu Lia → Pak Septian; PP 7A, 7B, 8A–8F kembali ke Bu Ernawati; Bu Lia kosong Senin jam 1–3. Data utama tidak berubah.',async()=>{
     const o=await sknBuat('Januari 2027 (Pak Isdarmanto Kepsek, Bu Lia Waka Kesiswaan)','',x=>{x.tpl='jan27';sknJan27(x)});
-    await sknBuka(o.id,true);UI.tab.jadwal='susun';toast('Cadangan Januari 2027 dibuka. Lanjutkan dengan Susun ulang jadwal.');location.hash='#jadwal';render()},'Buat & buka')}
-function sknBanner(){const id=sknAktif();if(id===SKN_UTAMA)return '';return `<div class="alert" style="background:#fff4d6;border:1.5px solid #e0b100;margin-bottom:10px"><span>📁 Sedang membuka cadangan <b>${esc(sknNama(id))}</b>. Perubahan pembagian tugas &amp; jadwal hanya masuk ke cadangan ini.</span><span class="sp"></span><button class="btn sm" onclick="sknBuka('${SKN_UTAMA}')">Kembali ke data utama</button></div>`}
+    await sknBuka(o.id,true);await sknSusunSemua('Januari 2027')},'Buat & buka')}
+async function sknSusunSemua(nm){openModal(`<h2>Menyusun ${esc(nm)}</h2><p id="ssInfo" class="small">Menyusun jadwal pelajaran… (sekitar 15 detik)</p>`);const info=t=>{const e=$('#ssInfo');if(e)e.textContent=t};
+  let R=null;try{const P=siapkanSusun();if(P.meets.length){R=await jalankanSusun(P,6000,true,info);if(R.un.length){info('Mencari susunan lain…');const R2=await jalankanSusun(siapkanSusun(),9000,true,info,false);if(R2.un.length<R.un.length||(R2.un.length===R.un.length&&R2.beda<R.beda))R=R2}
+    await bulk('jadwal',kelasList().map(k=>{const jd=get('jadwal',k.id)||{};return Object.assign(clone(jd),{id:k.id,slots:R.res[k.id]||{},kunci:jd.kunci||{}})}),'Menyimpan jadwal')}}catch(e){console.error(e)}
+  info('Menyusun piket…');const K=piketHitung();await piketTerapkan(K.by);
+  closeModal();UI.tab.jadwal='semua';location.hash='#jadwal';render();
+  openModal(`<h2>✅ ${esc(nm)} sudah disusun</h2><ul class="small"><li>Jadwal pelajaran: ${R?(R.un.length?`<b style="color:var(--bad)">${R.un.length} pertemuan belum dapat slot</b> (${esc(R.un.slice(0,8).map(m=>kNama(m.k)+' '+mKode(m.m)+' ('+short(gNama(m.g))+')').join('; '))}${R.un.length>8?' …':''}). Lengkapi manual atau coba Susun ulang dengan waktu Teliti.`:'semua pertemuan mendapat slot, tanpa bentrok'):'tidak ada perubahan'}${R?`; ${R.beda} sel berbeda dari jadwal sebelumnya.`:''}</li>
+  <li>Piket: ${K.hari.map(h=>`${h} ${K.by[h].length}`).join(', ')} orang.${K.sisa.length?' Tidak kebagian: '+esc(K.sisa.map(g=>short(gNama(g))).join(', '))+'.':''}${K.kurang.length?' <b style="color:var(--bad)">Kurang petugas: '+K.kurang.join(', ')+'</b>':''}</li></ul>
+  <p class="small muted">Semua hasil hanya ada di cadangan ini. Cek di Jadwal Pelajaran (tab Jadwal Induk & Jadwal Guru Piket). Bisa diubah manual, atau dibatalkan dengan ↶ Urungkan.</p><div class="mfoot"><button class="btn p" onclick="closeModal()">Oke</button></div>`)}
+/* ===== penyusun piket otomatis ===== */
+function piketHitung(){const c=S.cfg,A=ATURAN();const hari=c.hari.filter(h=>h!=='Sabtu');const per=+(c.aturan?.piketPerHari)||5,cap=+(c.aturan?.piketMaksJP)||A.idealHarian||6;
+  const noP=new Set((c.aturan?.noPiket)||[]);const ks=kepsekGuru();const tt=ttAll();
+  const jpG={},jpD={};kelasList().forEach(k=>{const sl=get('jadwal',k.id)?.slots||{};Object.entries(sl).forEach(([s,tid])=>{const t=get('tugas',tid);if(!t)return;const d=+s.split('-')[0];jpD[t.guruId+'@'+d]=(jpD[t.guruId+'@'+d]||0)+1})});
+  all('tugas').forEach(t=>jpG[t.guruId]=(jpG[t.guruId]||0)+tugasJP(t));
+  const alasan={};const ok=g=>{const tg=g.tugasTambahan||[];const k=tt.filter(t=>t.guruId===g.id).map(t=>t.kategori);
+    if(/non-duk/i.test(g.status||''))return 'guru non-DUK';if(ks&&ks.id===g.id||tg.includes('Kepala Sekolah')||k.includes('Kepala Sekolah'))return 'kepala sekolah';
+    if(noP.has(g.id))return 'dikecualikan';if(tg.includes('Wakil Kepala Sekolah')||k.includes('Wakil Kepala Sekolah'))return 'wakasek';
+    if(g.mapelUtama==='m_BK'||tg.includes('Layanan Bimbingan Konseling')||k.some(x=>/Layanan BK|Bimbingan/i.test(x)))return 'guru BK';
+    if(!(jpG[g.id]>0))return 'tidak mengajar / cuti';if(jpG[g.id]>=30)return 'mengajar '+jpG[g.id]+' JP';return ''};
+  const elig=[];all('guru').forEach(g=>{const a=ok(g);if(a)alasan[g.id]=a;else elig.push(g)});
+  const lama={};hari.forEach(h=>(c.piket?.[h]||[]).forEach(id=>lama[id]=h));
+  const days=g=>hari.map((h,i)=>({h,i,jp:jpD[g.id+'@'+c.hari.indexOf(h)]||0})).filter(x=>x.jp>=1&&x.jp<=cap);
+  elig.sort((a,b)=>((lama[a.id]?0:1)-(lama[b.id]?0:1))||((+a.urutDUK||999)-(+b.urutDUK||999)));
+  const by={};hari.forEach(h=>by[h]=[]);const sisa=[];
+    elig.forEach(g=>{const ds=days(g).filter(x=>by[x.h].length<per);if(!ds.length){sisa.push(g.id);return}
+    const keep=ds.find(x=>x.h===lama[g.id]);const pick=keep||ds.sort((a,b)=>(by[a.h].length-by[b.h].length)||(a.jp-b.jp))[0];by[pick.h].push(g.id)});
+  // isi hari yang kurang dengan memindah petugas dari hari yang sudah penuh
+  hari.forEach(h=>{let guard=0;while(by[h].length<per&&guard++<40){const cand=sisa.find(id=>days(get('guru',id)).some(x=>x.h===h));if(cand){by[h].push(cand);sisa.splice(sisa.indexOf(cand),1);continue}
+    let moved=false;
+    for(const h2 of hari){if(h2===h)continue;for(const id of by[h2]){if(days(get('guru',id)).some(x=>x.h===h)){const rep=sisa.find(s2=>days(get('guru',s2)).some(x=>x.h===h2));if(rep){by[h2]=by[h2].filter(x=>x!==id);by[h2].push(rep);sisa.splice(sisa.indexOf(rep),1);by[h].push(id);moved=true;break}}}if(moved)break}if(!moved)break}});
+  hari.forEach(h=>by[h].sort((a,b)=>(+get('guru',a)?.urutDUK||999)-(+get('guru',b)?.urutDUK||999)));
+  return {hari,by,sisa,alasan,kurang:hari.filter(h=>by[h].length<per).map(h=>h+' ('+by[h].length+')')}}
+async function piketTerapkan(by){const c=S.cfg;S.cfg.piket=Object.fromEntries(c.hari.map(h=>[h,by[h]||[]]));saveCfg();
+  const old=ttAll().filter(t=>t.kategori==='Piket Harian').map(t=>t.id);if(old.length)await bulkDel('tt',old);
+  const baru=[];Object.entries(by).forEach(([h,ids])=>ids.forEach(g=>baru.push({guruId:g,kategori:'Piket Harian',jenis:'Piket Hari '+h,peran:'',jam:katDef('Piket Harian').jam,ket:'',berperan:'',nilai:''})));if(baru.length)await bulk('tt',baru)}
+function piketOtomatis(){const K=piketHitung();const ex=Object.entries(K.alasan);
+  openModal(`<h2>⚡ Susun piket otomatis</h2><p class="small muted">Aturan: ${+(S.cfg.aturan?.piketPerHari)||5} orang per hari, tiap guru sekali seminggu, urutan DUK diutamakan, petugas yang sudah ada dipertahankan bila masih memenuhi, dan hari piketnya bukan hari kosong mengajar serta mengajar paling banyak ${+(S.cfg.aturan?.piketMaksJP)||ATURAN().idealHarian||6} JP. Tidak piket: kepala sekolah, wakasek, guru BK, guru non-DUK, guru cuti/tidak mengajar, dan guru yang mengajar 30 JP atau lebih.</p>
+  <div class="tw"><table><thead><tr>${K.hari.map(h=>`<th>${h} (${K.by[h].length})</th>`).join('')}</tr></thead><tbody>${Array.from({length:Math.max(...K.hari.map(h=>K.by[h].length),1)},(_,i)=>`<tr>${K.hari.map(h=>`<td class="small">${esc(K.by[h][i]?short(gNama(K.by[h][i])):'')}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
+  ${K.kurang.length?`<div class="alert bad"><span>Kurang petugas: ${esc(K.kurang.join(', '))}</span></div>`:''}${K.sisa.length?`<p class="small">Tidak kebagian (kuota penuh atau tidak ada hari yang memenuhi): ${esc(K.sisa.map(g=>short(gNama(g))).join(', '))}</p>`:''}
+  <details class="small"><summary>Tidak dipasang piket (${ex.length})</summary>${ex.map(([g,a])=>esc(short(gNama(g))+' – '+a)).join('<br>')}</details>
+  <div class="mfoot"><button class="btn" onclick="closeModal()">Batal</button><button class="btn p" id="pkGo">Terapkan</button></div>`,true);
+  $('#pkGo').onclick=async()=>{closeModal();await piketTerapkan(K.by);toast('Piket disusun. Bisa dibatalkan dengan ↶ Urungkan.');render()}}
+function sknBanner(){const id=sknAktif();if(id===SKN_UTAMA)return '';return `<div class="alert" style="background:#fff4d6;border:1.5px solid #e0b100;margin-bottom:10px"><span>📁 Sedang membuka cadangan <b>${esc(sknNama(id))}</b>. Perubahan pembagian tugas &amp; jadwal hanya masuk ke cadangan ini.</span><span class="sp"></span><button class="btn sm" onclick="confirmBox('Susun ulang jadwal pelajaran dan piket di cadangan ini secara otomatis? Jadwal lama di cadangan ini tetap bisa dikembalikan lewat ↶ Urungkan / Versi.',()=>sknSusunSemua(sknNama(sknAktif())),'Susun')">⚡ Susun jadwal &amp; piket</button> <button class="btn sm" onclick="sknBuka('${SKN_UTAMA}')">Kembali ke data utama</button></div>`}
 function vCadangan(){const L=sknList();const ak=sknAktif();if(!get('skenario',SKN_UTAMA)&&ak===SKN_UTAMA)L.unshift({id:SKN_UTAMA,nama:'Data utama (semester berjalan)',ket:'Belum pernah disimpan sebagai cadangan',_baru:1});
   const jp=o=>Object.values(o.tugas||{}).reduce((a,t)=>a+(+t.jp||0),0);
   const rows=L.map(o=>{const on=o.id===ak;return `<tr${on?' style="background:#eaf6f1"':''}><td><b>${esc(o.nama)}</b>${on?' <span class="tag ok">sedang dibuka</span>':''}<div class="small muted">${esc(o.ket||'')}</div></td><td class="small">${o.disimpan?sknTgl(o.disimpan):(o.dibuat&&!o._baru?sknTgl(o.dibuat):'–')}</td><td class="c small">${o._baru?'–':Object.keys(o.tugas||{}).length+' tugas · '+jp(o)+' JP'}</td>
@@ -965,7 +1007,7 @@ function vJadwal(){
   if(tab==='p_indukm')return tabs+vCetakJadwal('indukm');
   if(tab==='p_hadir')return tabs+vCetakJadwal('hadir');
   if(tab==='p_rekapjp')return tabs+vCetakSimple('Rekap JP Guru',()=>[gRekapJPDoc()]);
-  if(tab==='p_piket')return tabs+vCetakSimple('Jadwal Guru Piket',()=>[gPiketDoc()]);
+  if(tab==='p_piket')return tabs+`<div class="bar"><span class="sp"></span><button class="btn p" onclick="piketOtomatis()">⚡ Susun piket otomatis</button></div>`+vCetakSimple('Jadwal Guru Piket',()=>[gPiketDoc()]);
   if(tab==='p_semua')return tabs+vPaketCetak();
   if(tab==='susun')return tabs+vSusun();
   if(tab==='versi')return tabs+vVersi();
