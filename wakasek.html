@@ -996,6 +996,241 @@ function vJTugas(){const kl=kelasList(),mp=mapelList();if(!kl.length||!mp.length
    ${miss?`<div class="alert warn"><span>${miss} sel belum ada guru pengajarnya.</span></div>`:''}
    <div class="tw"><table class="mx"><thead><tr><th>Kelas</th>${mp.map(m=>`<th class="c" title="${esc(m.nama)}">${esc(m.kode)}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div>
    <details class="card small" style="margin-top:10px"><summary><b>Beban mengajar per guru</b> (${beban.length} guru)</summary><div class="tw"><table><thead><tr><th>Guru</th><th>Mengajar</th><th class="n">JP</th></tr></thead><tbody>${beban.map(x=>`<tr><td>${esc(x.g.nama)}</td><td class="small">${esc(mapelGuruTeks(x.g.id))}</td><td class="n"${x.jp>=30?' style="color:var(--bad);font-weight:700"':''}>${x.jp}</td></tr>`).join('')}</tbody></table></div></details>`}
+
+/* ===== aplikasi Jadwal: format worksheet (meniru file Excel jadwal sekolah) ===== */
+const WS_BLN=['JANUARI','FEBRUARI','MARET','APRIL','MEI','JUNI','JULI','AGUSTUS','SEPTEMBER','OKTOBER','NOPEMBER','DESEMBER'];
+const WS_HR=['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
+const wsSem=()=>S.cfg.semester==='Genap'?'2':'1';
+const wsTP=()=>String(S.cfg.tahun||'').replace('/','-');
+const wsY0=()=>parseInt(S.cfg.tahun)||new Date().getFullYear();
+const wsJudul=t=>`<p class="ttl" style="margin:0">${t}</p><p class="ttl" style="margin:0 0 6px">SEMESTER ${wsSem()} - TAHUN PELAJARAN ${wsTP()}</p>`;
+const wsMaxJ=()=>Math.max(1,...S.cfg.hari.map(h=>+S.cfg.jam[h]||0));
+const wsBulanSem=()=>S.cfg.semester==='Genap'?[0,1,2,3,4,5]:[6,7,8,9,10,11];
+const wsGuruAll=()=>guruList().slice().sort((a,b)=>kodeNum(a)-kodeNum(b)||String(a.nama).localeCompare(b.nama));
+const WCSS=`<style>.paper table.w{table-layout:fixed}.paper table.w td,.paper table.w th{padding:0 1px;font-size:9px;line-height:1.15;text-align:center;overflow:hidden;white-space:nowrap}.paper table.w td.l,.paper table.w th.l{text-align:left;padding-left:3px}.paper table.w th{background:#e9eef5;height:auto}.paper table.w .tk{border-left:2px solid #000}.paper table.w td.x{background:#e6e6e6}.paper .wsk{font-size:10px;margin:2px 0}</style>`;
+const wsTtdKS=(kanan)=>`<div style="display:flex;justify-content:${kanan?'space-between':'flex-end'};margin-top:10px;font-size:11px;page-break-inside:avoid">${kanan?`<div></div>`:''}<div style="min-width:230px">Mengetahui,<br>Kepala Sekolah,${ttdBlok(TTDON(),48)}<u>${esc(S.cfg.kepsek||'')}</u><br>NIP. ${esc(S.cfg.nipKepsek||'')}</div></div>`;
+const wsLegend=`<div class="wsk" style="line-height:1.35"><b>TULIS PADA KOTAK, tiap jam pelajaran jika:</b><br>T : Terlambat/Meninggalkan KBM terlalu lama/keluar sebelum bel<br>S : Sakit<br>I : Ijin (harus ada tugas ke siswa atau guru piket)<br>D : Tugas Dinas (harus ada tugas ke siswa atau guru piket)<br>A : Alpa (Guru tidak hadir di kelas dan siswa tanpa tugas)</div>`;
+const wsKode=g=>{if(!g)return '';const k=kodeG(g);if(k)return k;const i=guruJadwalList().findIndex(x=>x.id===g.id);return i>=0?String(i+1):''};
+const wsTK=kl=>{const s=new Set();kl.forEach((k,i)=>{if(i&&+k.tingkat!==+kl[i-1].tingkat)s.add(k.id)});return s};
+function wsChunk(a,n){const o=[];for(let i=0;i<a.length;i+=n)o.push(a.slice(i,i+n));return o.length?o:[[]]}
+
+/* 1. SUSUN: kode guru per hari, dua hari sejajar */
+function gWsSusun(){const c=S.cfg,kl=kelasList(),tk=wsTK(kl);
+  const blok=(h,hi)=>{const n=+c.jam[h]||0;let r='';for(let j=1;j<=n;j++)r+=`<tr><td><b>${j}</b></td>${kl.map(k=>{const t=slotT(k.id,hi,j);return `<td class="${tk.has(k.id)?'tk':''}">${t?esc(wsKode(get('guru',t.guruId))):''}</td>`}).join('')}</tr>`;
+    return `<table class="w"><thead><tr><th rowspan="2" style="width:18px">JAM<br>KE</th><th colspan="${kl.length}">${h.toUpperCase()}</th></tr><tr>${kl.map(k=>`<th class="${tk.has(k.id)?'tk':''}">${esc(kk(k))}</th>`).join('')}</tr></thead><tbody>${r}</tbody></table>`};
+  const H=c.hari;let g='';for(let i=0;i<H.length;i+=2)g+=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px"><div>${blok(H[i],i)}</div><div>${H[i+1]?blok(H[i+1],i+1):wsTtdKS()}</div></div>`;
+  return [LAND+WCSS+wsJudul('JADWAL PELAJARAN '+esc(SEKOLAH()))+g+(H.length%2?'':wsTtdKS())]}
+
+/* 2. RG: rekapitulasi guru × hari × jam */
+function gWsRG(){const c=S.cfg,H=c.hari,gl=guruJadwalList();const pages=wsChunk(gl,32);let no=0;
+  return pages.map((part,pi)=>{const rows=part.map(g=>{const m=petaGuru(g.id);let n=0;const cs=H.map((h,hi)=>Array.from({length:+c.jam[h]||0},(_,j)=>{const v=m[hi+'-'+(j+1)]||[];n+=v.length;return `<td class="${j===0?'tk':''}">${v.map(t=>esc(kk(get('kelas',t.kelasId)))).join('/')}</td>`}).join('')).join('');
+      return `<tr><td>${++no}</td><td class="l">${esc(g.nama)}</td>${cs}<td><b>${n}</b></td></tr>`}).join('');
+    return LAND+FIT+WCSS+`<style>.paper table.w td{height:13px}</style>`+wsJudul('REKAPITULASI JADWAL PELAJARAN '+esc(SEKOLAH()))+`<table class="w"><thead><tr><th rowspan="2" style="width:20px">NO</th><th rowspan="2" class="l" style="width:150px">NAMA</th>${H.map(h=>`<th class="tk" colspan="${+c.jam[h]||0}">${h.toUpperCase()}</th>`).join('')}<th rowspan="2" style="width:24px">JML</th></tr><tr>${H.map(h=>Array.from({length:+c.jam[h]||0},(_,j)=>`<th class="${j===0?'tk':''}">${j+1}</th>`).join('')).join('')}</tr></thead><tbody>${rows}</tbody></table>`+(pi===pages.length-1?wsTtdKS():'')})}
+
+/* 3. RPG: rekap per guru, 9 kartu per halaman */
+function wsKartuGuru(g){const c=S.cfg,mx=wsMaxJ(),m=petaGuru(g.id);let tot=0;
+  const rows=c.hari.map((h,hi)=>`<tr><td class="l"><b>${h.toUpperCase()}</b></td>${Array.from({length:mx},(_,j)=>{if(j+1>(+c.jam[h]||0))return '<td class="x"></td>';const v=m[hi+'-'+(j+1)]||[];tot+=v.length;return `<td>${v.map(t=>esc(kk(get('kelas',t.kelasId)))).join('/')}</td>`}).join('')}</tr>`).join('');
+  return `<table class="w"><thead><tr><th style="width:16px">${esc(wsKode(g))}</th><th colspan="${mx}" class="l">${esc(g.nama)}</th></tr><tr><th></th>${Array.from({length:mx},(_,j)=>`<th>${j+1}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table><div style="font-size:8.5px;text-align:right;margin:-2px 0 0">Jumlah: <b>${tot} JP</b></div>`}
+function gWsRPG(gid){const gl=gid?[get('guru',gid)].filter(Boolean):guruJadwalList();
+  return wsChunk(gl,9).map(part=>LAND+FIT+WCSS+`<style>.paper table.w td{height:14px}.paper table.w td:first-child{width:46px}</style>`+wsJudul('REKAP JADWAL MENGAJAR PER GURU '+esc(SEKOLAH()))+`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px 14px">${part.map(g=>`<div>${wsKartuGuru(g)}</div>`).join('')}</div>`)}
+
+/* 5. RKL: jadwal kelas dua blok hari, mapel + guru */
+function gWsRKL(kid){const c=S.cfg,k=get('kelas',kid);if(!k)return [''];const wali=get('guru',k.waliId);const mx=wsMaxJ();const H=c.hari;const h1=H.slice(0,3),h2=H.slice(3);
+  const blk=hs=>{const idx=hs.map(h=>H.indexOf(h));return `<table class="w" style="margin-bottom:6px"><thead><tr><th style="width:34px">JAM KE</th>${hs.map(h=>`<th colspan="2">${h.toUpperCase()}</th>`).join('')}</tr></thead><tbody>${Array.from({length:mx},(_,j)=>`<tr><td><b>${j+1}</b></td>${idx.map(hi=>{if(j+1>(+c.jam[H[hi]]||0))return '<td class="x"></td><td class="x"></td>';const t=slotT(kid,hi,j+1);const g=t&&orang(t.guruId);return `<td class="l" style="width:11%">${t?esc(mNama(t.mapelId)):''}</td><td class="l">${g?esc(g.nama):''}</td>`}).join('')}</tr>`).join('')}</tbody></table>`};
+  return [LAND+FIT+WCSS+`<style>.paper table.w td{height:15px;font-size:10px}.paper table.w th{font-size:10px}</style>`+wsJudul('JADWAL PELAJARAN '+esc(SEKOLAH()))+`<table class="nb" style="margin:0 0 6px"><tr><td style="border:0;font-size:12px">WALI KELAS : <b>${esc(wali?.nama||'……………………………')}</b></td><td style="border:0;text-align:right;font-size:12px">KELAS <b style="font-size:26px;border:2px solid #000;padding:0 10px;margin-left:6px">${esc(kk(k))}</b></td></tr></table>`+blk(h1)+(h2.length?blk(h2):'')+`<p style="text-align:center;font-size:9px;margin:4px 0 0">${esc(S.cfg.alamat||'')}</p>`]}
+
+/* 6. Harian: jadwal sesuai hari masuk + tanda tangan */
+function gWsHarian(hi){const c=S.cfg,h=c.hari[hi];if(!h)return [''];const n=+c.jam[h]||0;const gl=wsGuruAll();
+  const rows=gl.map((g,i)=>{const m=petaGuru(g.id);return `<tr><td>${i+1}</td><td class="l">${esc(g.nama)}</td>${Array.from({length:n},(_,j)=>`<td>${(m[hi+'-'+(j+1)]||[]).map(t=>esc(kk(get('kelas',t.kelasId)))).join('/')}</td>`).join('')}<td></td><td class="l" style="padding-left:${i%2?26:3}px">${i+1}</td><td></td><td class="l" style="padding-left:${i%2?26:3}px">${i+1}</td></tr>`}).join('');
+  const pk=(c.piket?.[h]||[]).map(id=>get('guru',id)).filter(Boolean);
+  const box=`<div style="display:flex;gap:16px;margin-top:8px;font-size:10px;page-break-inside:avoid">${[0,1].map(i=>`<div style="flex:1;border:1px solid #000;padding:4px 8px;height:62px">${i?esc(S.cfg.tempatSK||'')+', ……………………<br>':''}Guru Piket,<br><br><br>……………………………<br>NIP.</div>`).join('')}</div>`;
+  return [FIT+WCSS+`<style>.paper table.w td{height:13.5px}</style>`+`<p style="margin:0;font-weight:700;font-size:13px">JADWAL PELAJARAN SESUAI HARI MASUK</p><p style="margin:0 0 4px;font-weight:700;font-size:15px;border:1px solid #000;display:inline-block;padding:0 14px">${h.toUpperCase()}</p>${pk.length?`<span style="font-size:10px;margin-left:10px">Guru piket: ${esc(pk.map(g=>g.nama).join('; '))}</span>`:''}
+  <table class="w"><thead><tr><th rowspan="2" style="width:20px">NO</th><th rowspan="2" class="l" style="width:170px">NAMA</th><th colspan="${n}">J A M &nbsp; K E</th><th colspan="4">TANDA TANGAN</th></tr><tr>${Array.from({length:n},(_,j)=>`<th>${j+1}</th>`).join('')}<th style="width:34px">JAM</th><th style="width:70px">MASUK</th><th style="width:34px">JAM</th><th style="width:70px">PULANG</th></tr></thead><tbody>${rows}</tbody></table>`+box]}
+
+/* 7. JNAL1: jurnal kegiatan pembelajaran di kelas */
+function gWsJnal1(kid){const c=S.cfg,k=get('kelas',kid);if(!k)return [''];const wali=get('guru',k.waliId);let rows='';
+  c.hari.forEach((h,hi)=>{const n=+c.jam[h]||0;for(let j=1;j<=n;j++){const t=slotT(kid,hi,j);const g=t&&orang(t.guruId);rows+=`<tr>${j===1?`<td rowspan="${n}" style="writing-mode:vertical-rl;transform:rotate(180deg);font-weight:700">${h.toUpperCase()}, ……………</td>`:''}<td>${j}</td><td class="l">${g?esc(g.nama):''}</td><td></td><td></td><td></td><td></td></tr>`}});
+  return [FIT+WCSS+`<style>.paper table.w td{height:15px;font-size:9.5px}</style><table class="nb" style="margin:0 0 4px"><tr><td style="border:0;text-align:center"><p class="ttl" style="margin:0">JURNAL KEGIATAN PEMBELAJARAN DI KELAS</p><p class="ttl" style="margin:0">${esc(SEKOLAH())}</p><p class="ttl" style="margin:0">SEMESTER ${wsSem()} - TAHUN PELAJARAN ${wsTP()}</p></td><td style="border:1px solid #000;width:70px;text-align:center;font-size:11px">KELAS<br><b style="font-size:22px">${esc(kk(k))}</b></td></tr></table>
+  <table class="w"><thead><tr><th rowspan="2" style="width:30px">HARI,<br>TGL</th><th rowspan="2" style="width:26px">JAM<br>KE</th><th rowspan="2" style="width:150px">NAMA PENGAJAR</th><th rowspan="2">KOMPETENSI DASAR / MATERI PELAJARAN</th><th colspan="2">JML SISWA</th><th rowspan="2" style="width:62px">TANDA TANGAN</th></tr><tr><th style="width:36px">HADIR</th><th style="width:36px">TDK HADIR</th></tr></thead><tbody>${rows}</tbody></table>`+ttdDua('Wali Kelas,',wali?.nama,wali?.nip)]}
+
+/* 9. HDR1: daftar hadir guru dalam KBM per kelas (3 bulan per halaman) */
+function gWsHdr1(kid){const c=S.cfg,k=get('kelas',kid);if(!k)return [''];const B=wsBulanSem();
+  return [B.slice(0,3),B.slice(3)].map(bs=>{let rows='';c.hari.forEach((h,hi)=>{const n=+c.jam[h]||0;for(let j=1;j<=n;j++){const t=slotT(kid,hi,j);const g=t&&orang(t.guruId);rows+=`<tr>${j===1?`<td rowspan="${n}" style="writing-mode:vertical-rl;transform:rotate(180deg);font-weight:700">${h.toUpperCase()}</td>`:''}<td>${j}</td><td class="l">${g?esc(g.nama):''}</td>${'<td></td>'.repeat(20)}</tr>`}});
+    return FIT+WCSS+`<style>.paper table.w td{height:14px}</style><table class="nb" style="margin:0 0 4px"><tr><td style="border:0;text-align:center"><p class="ttl" style="margin:0">DAFTAR HADIR GURU DALAM KEGIATAN BELAJAR MENGAJAR</p><p class="ttl" style="margin:0">SEMESTER ${wsSem()} - TAHUN PELAJARAN ${wsTP()}</p></td><td style="border:1px solid #000;width:64px;text-align:center"><b style="font-size:22px">${esc(kk(k))}</b></td></tr></table>
+    <table class="w"><thead><tr><th rowspan="3" style="width:22px">HARI</th><th rowspan="3" style="width:22px">JAM<br>KE</th><th rowspan="3" style="width:150px">NAMA PENGAJAR</th><th colspan="15">PERTEMUAN BULAN / MINGGU KE-</th><th colspan="5">JUMLAH</th></tr><tr>${bs.map(b=>`<th colspan="5">${WS_BLN[b]}</th>`).join('')}<th rowspan="2">T/<br>B</th><th rowspan="2">S</th><th rowspan="2">I/<br>D</th><th rowspan="2">A</th><th rowspan="2">S+I<br>+A</th></tr><tr>${bs.map(()=>['I','II','III','IV','V'].map(x=>`<th>${x}</th>`).join('')).join('')}</tr></thead><tbody>${rows}</tbody></table>
+    <div style="display:flex;justify-content:space-between;gap:10px">${wsLegend}${wsTtdKS()}</div>`})}
+
+/* 10. HDR2: kartu absent guru */
+function gWsHdr2(gid){const c=S.cfg,g=get('guru',gid);if(!g)return [''];const m=petaGuru(gid);const B=wsBulanSem();let rows='';
+  c.hari.forEach((h,hi)=>{const n=+c.jam[h]||0;for(let j=1;j<=n;j++){const v=m[hi+'-'+j]||[];rows+=`<tr>${j===1?`<td rowspan="${n}" style="writing-mode:vertical-rl;transform:rotate(180deg);font-weight:700">${h.toUpperCase()}</td>`:''}<td>${j}</td><td><b>${v.map(t=>esc(kk(get('kelas',t.kelasId)))).join('/')}</b></td>${v.length?'<td></td>'.repeat(35):'<td class="x"></td>'.repeat(30)+'<td></td>'.repeat(5)}</tr>`}});
+  return [FIT+WCSS+`<style>.paper table.w td{height:13px}</style><p class="ttl" style="margin:0">KARTU ABSENT GURU</p><p class="ttl" style="margin:0 0 6px">${esc(SEKOLAH())}</p>
+  <table class="nb" style="font-size:11px;margin:0 0 4px"><tr><td style="border:0">Nama Guru : <b>${esc(g.nama)}</b></td><td style="border:0">Thn Pelajaran : ${wsTP()}</td></tr><tr><td style="border:0">Mata Pelajaran : ${esc(mapelGuruNama(gid)||'……………………')}</td><td style="border:0">Semester : ${wsSem()}</td></tr></table>
+  <table class="w"><thead><tr><th rowspan="3" style="width:20px">HARI</th><th rowspan="3" style="width:20px">JAM<br>KE</th><th rowspan="3" style="width:30px">KLS</th><th colspan="30">PERTEMUAN BULAN / MINGGU KE-</th><th colspan="5">JUMLAH</th></tr><tr>${B.map(b=>`<th colspan="5">${WS_BLN[b]}</th>`).join('')}<th rowspan="2">T/<br>B</th><th rowspan="2">S</th><th rowspan="2">I/<br>D</th><th rowspan="2">A</th><th rowspan="2">S+I<br>+A</th></tr><tr>${B.map(()=>['I','II','III','IV','V'].map(x=>`<th>${x}</th>`).join('')).join('')}</tr></thead><tbody>${rows}</tbody></table>
+  <div style="display:flex;justify-content:space-between;gap:10px">${wsLegend}</div>`+ttdDua('Guru Mata Pelajaran,',g.nama,g.nip)]}
+
+/* 11. BLANKO: rekapitulasi absensi guru */
+const wsGuruKelas=kid=>[...new Set(all('tugas').filter(t=>t.kelasId===kid).map(t=>t.guruId))].map(id=>get('guru',id)).filter(Boolean).sort((a,b)=>kodeNum(a)-kodeNum(b)||String(a.nama).localeCompare(b.nama));
+function wsBlankoTbl(kid){const k=get('kelas',kid);const wali=k&&get('guru',k.waliId);const gl=k?wsGuruKelas(kid):wsGuruAll();const n=Math.max(gl.length,14);
+  return `<p class="ttl" style="margin:0;font-size:12px">REKAPITULASI ABSENSI GURU DALAM KBM</p><table class="nb" style="font-size:10.5px;margin:2px 0"><tr><td style="border:0">Kelas: <b>${k?esc(k.nama):'…………'}</b></td></tr><tr><td style="border:0">Wali Kelas: <b>${esc(wali?.nama||'……………………………')}</b></td></tr></table>
+  <table class="w"><thead><tr><th rowspan="2" style="width:22px">NO</th><th rowspan="2" class="l">NAMA</th><th colspan="4">KETERANGAN</th><th style="width:34px">JML</th></tr><tr><th style="width:26px">T/B</th><th style="width:26px">S</th><th style="width:26px">I/D</th><th style="width:26px">A</th><th>S+I+A</th></tr></thead><tbody>${Array.from({length:n},(_,i)=>`<tr><td>${i+1}</td><td class="l">${gl[i]?esc(gl[i].nama):''}</td><td></td><td></td><td></td><td></td><td></td></tr>`).join('')}</tbody></table>`}
+function gWsBlanko(kid){const css=WCSS+`<style>.paper table.w td{height:16px;font-size:10px}</style>`;
+  if(kid)return [FIT+css+wsBlankoTbl(kid)+wsTtdKS()];
+  const kl=kelasList();const pages=wsChunk(kl,2).map(p=>FIT+css+`<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">${p.map(k=>`<div>${wsBlankoTbl(k.id)}</div>`).join('')}</div>`);
+  const tk=wsTK(kl);const gl=wsGuruAll();let no=0;
+  wsChunk(gl,34).forEach((part,pi,arr)=>pages.push(LAND+FIT+WCSS+`<style>.paper table.w td{height:13px}</style><p class="ttl" style="margin:0">REKAPITULASI ABSENSI GURU DALAM KBM (SEMUA KELAS)</p><p class="wsk">KETERANGAN: …………………………… Pilih salah satu: [ T/B ] [ S ] [ I/D ] [ A ]</p><table class="w"><thead><tr><th rowspan="2" style="width:20px">NO</th><th rowspan="2" class="l" style="width:160px">NAMA</th><th colspan="${kl.length}">KELAS</th><th rowspan="2" style="width:28px">JML</th></tr><tr>${kl.map(k=>`<th class="${tk.has(k.id)?'tk':''}">${esc(kk(k))}</th>`).join('')}</tr></thead><tbody>${part.map(g=>`<tr><td>${++no}</td><td class="l">${esc(g.nama)}</td>${kl.map(k=>`<td class="${tk.has(k.id)?'tk':''}"></td>`).join('')}<td></td></tr>`).join('')}</tbody></table>`+(pi===arr.length-1?wsTtdKS():'')));
+  return pages}
+
+/* 12–13. R-HD rekap kehadiran, peringkat & grafik (dari isian ketidakhadiran) */
+const wsAbs=()=>Object.assign({mg:8,dari:'',sd:'',thn:'',d:{}},S.cfg.absenGuru||{});
+function wsAbsData(){const A=wsAbs();const R=rekapJPData();const mg=+A.mg||0;
+  return wsGuruAll().map(g=>{const r=R.find(x=>x.g.id===g.id);const jp=r?r.tot:0;const jm=jp*mg;const d=A.d[g.id]||{};const v=['t','s','i','a'].map(x=>+d[x]||0);const sia=v[1]+v[2]+v[3];
+    const pc=x=>jm?x/jm:0;return {g,jp,jm,v,sia,p:[...v.map(pc),pc(sia)]}})}
+const wsPct=x=>(Math.round(x*1000)/10).toFixed(1).replace('.',',')+'%';
+function wsAbsSet(gid,k,v){const A=wsAbs();A.d=Object.assign({},A.d);A.d[gid]=Object.assign({},A.d[gid]||{},{[k]:v===''?'':Math.max(0,+v||0)});S.cfg.absenGuru=A;saveCfg()}
+function wsAbsMeta(k,v){const A=wsAbs();A[k]=v;S.cfg.absenGuru=A;saveCfg();render()}
+const wsPeriode=()=>{const A=wsAbs();return `MASA KBM: ${esc(A.mg||'…')} MINGGU, BULAN: ${esc(A.dari||'……')} S.D ${esc(A.sd||'……')} THN: ${esc(A.thn||wsY0())}`};
+function gWsRHD(){const D=wsAbsData();const rows=D.map((r,i)=>`<tr><td>${i+1}</td><td class="l">${esc(r.g.nama)}</td><td>${r.jp}</td><td>${r.jm}</td>${r.v.map(x=>`<td>${x||''}</td>`).join('')}<td>${r.sia||''}</td>${r.p.map(x=>`<td>${x?wsPct(x):''}</td>`).join('')}</tr>`).join('');
+  return [FIT+WCSS+`<style>.paper table.w td{height:13.5px}</style><p class="ttl" style="margin:0">REKAPITULASI KEHADIRAN GURU DALAM KBM</p><p class="ttl" style="margin:0">${esc(SEKOLAH())}</p><p class="sub" style="margin:0 0 6px;text-align:center;font-size:11px">${wsPeriode()}</p>
+  <table class="w"><thead><tr><th rowspan="2" style="width:20px">NO</th><th rowspan="2" class="l">NAMA</th><th rowspan="2" style="width:34px">JML<br>JAM/MG</th><th rowspan="2" style="width:34px">JAM<br>x MG</th><th colspan="5">JUMLAH</th><th colspan="5">PROSENTASE</th></tr><tr>${['T','S','I/D','A','S+I+A','T','S','I/D','A','S+I+A'].map(x=>`<th style="width:${x==='S+I+A'?36:28}px">${x}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table>`+wsTtdKS()]}
+function gWsPeringkat(){const D=wsAbsData();const L=(i,judul)=>{const a=D.filter(r=>r.p[i]>0).sort((x,y)=>y.p[i]-x.p[i]).slice(0,15);return `<div><p style="text-align:center;font-weight:700;font-size:10.5px;margin:6px 0 2px">${judul}</p><table class="w"><thead><tr><th style="width:22px">NO</th><th class="l">NAMA</th><th style="width:56px">PERSENTASE</th></tr></thead><tbody>${Array.from({length:15},(_,k)=>`<tr><td>${k+1}</td><td class="l">${a[k]?esc(a[k].g.nama):''}</td><td>${a[k]?wsPct(a[k].p[i]):''}</td></tr>`).join('')}</tbody></table></div>`};
+  return [FIT+WCSS+`<style>.paper table.w td{height:15px;font-size:10px}</style><p class="ttl" style="margin:0">PERINGKAT 15 BESAR PERSENTASE KEHADIRAN GURU</p><p class="ttl" style="margin:0">DALAM KEGIATAN BELAJAR MENGAJAR</p><p class="sub" style="text-align:center;font-size:11px">${wsPeriode()}</p>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 16px">${L(0,'TERLAMBAT MASUK KBM DAN MENINGGALKAN KBM LEBIH AWAL')}${L(1,'PERSENTASE KETIDAKHADIRAN KARENA : SAKIT')}${L(2,'PERSENTASE KETIDAKHADIRAN KARENA : IZIN DAN KEGIATAN DINAS')}${L(3,'PERSENTASE KETIDAKHADIRAN KARENA : TANPA KETERANGAN')}${L(4,'PERSENTASE KETIDAKHADIRAN KARENA : SAKIT, IZIN DAN TANPA KETERANGAN')}<div style="align-self:end">${wsTtdKS()}</div></div>`]}
+function wsBar(D,i,judul,w,h){const a=D.filter(r=>r.p[i]>0).sort((x,y)=>y.p[i]-x.p[i]);const mx=Math.max(0.05,...a.map(r=>r.p[i]));const top=Math.ceil(mx*20)/20;const L=46,B=h-110,W=w-L-10;const bw=a.length?Math.min(26,W/a.length):0;
+  let s=`<svg viewBox="0 0 ${w} ${h}" width="100%" style="display:block;font-family:Times New Roman,serif"><text x="${w/2}" y="14" text-anchor="middle" font-size="12" font-weight="700">${judul}</text>`;
+  for(let k=0;k<=5;k++){const y=B-(B-24)*k/5;s+=`<line x1="${L}" x2="${w-10}" y1="${y}" y2="${y}" stroke="#bbb" stroke-dasharray="3 3"/><text x="${L-4}" y="${y+3}" text-anchor="end" font-size="9">${wsPct(top*k/5)}</text>`}
+  a.forEach((r,k)=>{const x=L+k*bw+bw*0.15,bh=(B-24)*r.p[i]/top;s+=`<rect x="${x}" y="${B-bh}" width="${bw*0.7}" height="${bh}" fill="#3f5f8f"/><text x="${x+bw*0.35}" y="${B-bh-2}" text-anchor="middle" font-size="7">${wsPct(r.p[i])}</text><text transform="translate(${x+bw*0.45},${B+4}) rotate(-90)" text-anchor="end" font-size="8">${esc(short(r.g.nama))}</text>`});
+  if(!a.length)s+=`<text x="${w/2}" y="${B/2}" text-anchor="middle" font-size="11" fill="#777">Belum ada data ketidakhadiran</text>`;
+  return s+`<line x1="${L}" x2="${w-10}" y1="${B}" y2="${B}" stroke="#000"/></svg>`}
+function gWsGrafik(){const D=wsAbsData();const hd=`<p class="ttl" style="margin:0">GRAFIK KETIDAKHADIRAN GURU DALAM KBM</p><p class="ttl" style="margin:0">${esc(SEKOLAH())}</p><p style="text-align:center;font-size:11px;margin:0 0 6px">${wsPeriode()}</p>`;
+  return [LAND+FIT+hd+`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${[[0,'Terlambat dan Meninggalkan KBM'],[1,'Karena SAKIT'],[2,'Karena IZIN dan Kegiatan Dinas'],[3,'Tanpa Keterangan']].map(([i,j])=>`<div style="border:1px solid #999">${wsBar(D,i,j,560,300)}</div>`).join('')}</div>`,
+    LAND+FIT+hd+`<div style="border:1px solid #999">${wsBar(D,4,'Sakit + Izin + Tanpa Keterangan',1150,560)}</div>`+wsTtdKS()]}
+
+/* 14. KAL: hari efektif & libur */
+const KAL_KODE=[['LHB','Libur Hari Besar','#f4a3a3'],['LU','Libur Umum','#ffd27a'],['LS1','Libur Semester 1','#8ec5ff'],['LS2','Libur Semester 2','#8ec5ff'],['LPP','Libur Permulaan Puasa','#c7b3f5'],['LHR','Libur Sekitar Hari Raya','#f5c97a'],['KTS','Kegiatan Tengah Semester','#a8dba0'],['EF','Hari Belajar Efektif Fakultatif','#d9f2e6']];
+const kalWarna=k=>(KAL_KODE.find(x=>x[0]===k)||[])[2]||'';
+const ymdOf=(y,m,d)=>y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+function kalKode(y,m,d){const v=(S.cfg.kal||{})[ymdOf(y,m,d)];if(v==='-')return '';if(v)return v;const w=new Date(y,m,d).getDay();const lima=!S.cfg.hari.includes('Sabtu');return (w===0||(lima&&w===6))?'LU':''}
+const kalBulan=()=>Array.from({length:13},(_,i)=>{const m=(6+i)%12;return {y:wsY0()+(6+i>=12?1:0),m}});
+function kalEfektif(y,m){const n=new Date(y,m+1,0).getDate();let e=0;for(let d=1;d<=n;d++)if(!kalKode(y,m,d))e++;return e}
+function kalSet(ymd){const pil=UI.kalPil||'LHB';const [y,m,d]=ymd.split('-').map(Number);const cur=kalKode(y,m-1,d);const K=Object.assign({},S.cfg.kal||{});
+  const w=new Date(y,m-1,d).getDay();const def=(w===0||(!S.cfg.hari.includes('Sabtu')&&w===6))?'LU':'';
+  const nv=cur===pil?'':pil;if(nv===def)delete K[ymd];else K[ymd]=nv||'-';S.cfg.kal=K;saveCfg();render()}
+function wsKalTabel(edit){const BL=kalBulan();let s1=0,s2=0;
+  const rows=BL.map(({y,m},i)=>{const n=new Date(y,m+1,0).getDate();const e=kalEfektif(y,m);if(i<6)s1+=e;else if(i<12)s2+=e;
+    return `<tr><td>${i+1}</td><td class="l">${WS_BLN[m]}</td><td>${y}</td>${Array.from({length:31},(_,d)=>{if(d+1>n)return '<td class="x"></td>';const k=kalKode(y,m,d+1);return `<td style="${k?'background:'+kalWarna(k)+';':''}${edit?'cursor:pointer;':''}font-size:7px" ${edit?`onclick="kalSet('${ymdOf(y,m,d+1)}')" title="${d+1} ${WS_BLN[m]} ${y}"`:''}>${k}</td>`}).join('')}<td><b>${e}</b></td></tr>`}).join('');
+  return {html:`<table class="w"><thead><tr><th rowspan="2" style="width:18px">NO</th><th rowspan="2" class="l" style="width:62px">BULAN</th><th rowspan="2" style="width:30px">THN</th><th colspan="31">TANGGAL</th><th rowspan="2" style="width:30px">HARI<br>EF.</th></tr><tr>${Array.from({length:31},(_,d)=>`<th>${d+1}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table>`,s1,s2}}
+function gWsKal(){const T=wsKalTabel(false);
+  return [LAND+FIT+WCSS+`<style>.paper table.w td{height:18px}</style><p class="ttl" style="margin:0">HARI EFEKTIF SEKOLAH, EFEKTIF DAN HARI LIBUR ${esc(SEKOLAH())}</p><p class="ttl" style="margin:0 0 6px">TAHUN PELAJARAN ${wsTP()}</p>`+T.html+
+  `<div style="display:flex;justify-content:space-between;gap:20px;font-size:10px;margin-top:6px"><div><b>KETERANGAN</b><table class="nb" style="font-size:10px">${wsChunk(KAL_KODE,2).map(r=>`<tr>${r.map(([k,l,w])=>`<td style="border:0;padding:1px 4px"><span style="display:inline-block;width:26px;background:${w};text-align:center;border:1px solid #999">${k}</span> : ${l}</td>`).join('')}</tr>`).join('')}</table></div>
+  <div><table class="nb" style="font-size:11px"><tr><td style="border:0">SEMESTER I</td><td style="border:0">: <b>${T.s1}</b> Hari</td></tr><tr><td style="border:0">SEMESTER II</td><td style="border:0">: <b>${T.s2}</b> Hari</td></tr></table></div>${wsTtdKS()}</div>`]}
+
+/* 15. Tbh: hari masuk tambahan */
+const wsHariAjar=gid=>{const m=petaGuru(gid);return S.cfg.hari.filter((h,hi)=>Object.keys(m).some(s=>+s.split('-')[0]===hi))};
+function tbhSet(gid,i,v){const T=Object.assign({},S.cfg.tbh||{});const a=(T[gid]||[]).slice();a[i]=v;T[gid]=a.filter((x,k)=>x||k<3);S.cfg.tbh=T;saveCfg();render()}
+function gWsTbh(){const H=S.cfg.hari;const gl=guruJadwalList();
+  const rows=gl.map((g,i)=>{const aj=wsHariAjar(g.id);const tb=(S.cfg.tbh?.[g.id]||[]).filter(Boolean);const tot=new Set([...aj,...tb]).size;return `<tr><td>${i+1}</td><td class="l">${esc(g.nama)}</td>${H.map(h=>`<td>${aj.includes(h)?'':'X'}</td>`).join('')}${[0,1,2].map(k=>`<td>${esc(tb[k]||'')}</td>`).join('')}<td><b>${tot}</b></td></tr>`}).join('');
+  return [FIT+WCSS+`<style>.paper table.w td{height:14px;font-size:9.5px}</style><p class="ttl" style="margin:0">HARI MASUK TAMBAHAN UNTUK GURU</p><p class="ttl" style="margin:0 0 6px">SELAIN YANG TERJADWAL</p>
+  <table class="w"><thead><tr><th rowspan="2" style="width:22px">No</th><th rowspan="2" class="l">Nama</th><th colspan="${H.length}">HARI KOSONG SESUAI JADWAL</th><th rowspan="2" style="width:56px">MASUK<br>TAMBAHAN</th><th rowspan="2" style="width:56px">MASUK<br>TAMBAHAN</th><th rowspan="2" style="width:56px">MASUK<br>TAMBAHAN</th><th rowspan="2" style="width:56px">JUMLAH<br>HARI MASUK</th></tr><tr>${H.map(h=>`<th style="width:38px">${h.toUpperCase()}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table>`+wsTtdKS()]}
+
+/* 16. PARAF: daftar kehadiran guru bulanan */
+function gWsParaf(ym){const [y,m]=(ym||'').split('-').map(Number);if(!y)return [''];const mm=m-1;const n=new Date(y,mm+1,0).getDate();const gl=wsGuruAll();let no=0;
+  return wsChunk(gl,17).map(part=>LAND+FIT+WCSS+`<style>.paper table.w td{height:27px}.paper table.w th{font-size:8px}</style><table class="nb" style="margin:0 0 4px"><tr><td style="border:0;font-weight:700;font-size:13px">DAFTAR KEHADIRAN GURU ${esc(SEKOLAH())}</td><td style="border:0;text-align:right;font-weight:700;font-size:13px">${WS_BLN[mm]} ${y}</td></tr></table>
+  <table class="w"><thead><tr><th rowspan="2" style="width:20px">NO</th><th class="l" style="width:150px">Hari/Tanggal</th>${Array.from({length:n},(_,d)=>`<th>${WS_HR[new Date(y,mm,d+1).getDay()]}</th>`).join('')}<th rowspan="2" style="width:44px">KET</th></tr><tr><th class="l">NAMA</th>${Array.from({length:n},(_,d)=>`<th>${d+1}</th>`).join('')}</tr></thead>
+  <tbody>${part.map(g=>`<tr><td>${++no}</td><td class="l">${esc(g.nama)}</td>${Array.from({length:n},(_,d)=>{const k=kalKode(y,mm,d+1);return k?`<td style="background:${kalWarna(k)};font-size:6.5px">${k}</td>`:'<td></td>'}).join('')}<td></td></tr>`).join('')}</tbody></table>`)}
+
+/* 17. Cover daftar hadir guru */
+function gWsCover(ym){const [y,m]=(ym||'').split('-').map(Number);const logo=new URL('rp_logo_kota.jpg',location.href).href;
+  return [`<div style="border:3px double #000;padding:40px 30px;height:1100px;box-sizing:border-box;text-align:center;display:flex;flex-direction:column;justify-content:space-between">
+  <div style="font-size:20px;line-height:1.5">PEMERINTAH KOTA TANGERANG<br>DINAS PENDIDIKAN<br>UPT ${esc(SEKOLAH())}<br>TAHUN PELAJARAN ${esc(S.cfg.tahun||'')}</div>
+  <div><img src="${logo}" alt="" style="width:180px;height:auto"></div>
+  <div style="font-size:30px;font-weight:700">DAFTAR HADIR GURU</div>
+  <div style="font-size:18px">BULAN : ${y?WS_BLN[m-1]+' '+y:'…………………………………'}</div>
+  <div style="font-size:15px;line-height:1.5">UPT ${esc(SEKOLAH())}<br>${esc(S.cfg.alamat||'')}<br>${y||wsY0()}</div></div>`]}
+
+/* 18. WK: daftar wali kelas */
+function gWsWK(){const kl=kelasList();
+  return [JCSS+kopHtml()+`<p class="ttl">DAFTAR WALI KELAS</p><p class="ttl">${esc(SEKOLAH())}</p><p class="ttl" style="margin-bottom:8px">TAHUN PELAJARAN ${esc(S.cfg.tahun||'')}</p>
+  <table><thead><tr><th style="width:60px">KELAS</th><th>NAMA GURU</th><th style="width:190px">MATA PELAJARAN</th><th style="width:70px">WALI</th></tr></thead><tbody>${kl.map(k=>{const g=get('guru',k.waliId);return `<tr><td class="c">${esc(kk(k))}</td><td>${esc(g?.nama||'')}</td><td>${esc(g?(mapelGuruNama(g.id)||mNama(g.mapelUtama)||''):'')}</td><td class="c">${esc(k.tingkat+'-'+hurufK(k))}</td></tr>`}).join('')}</tbody></table>`+ttdKS1()]}
+
+/* 19. DESIGN: pembagian jam guru × kelas */
+function gWsDesign(){const kl=kelasList(),tk=wsTK(kl);const gl=wsGuruAll().filter(g=>all('tugas').some(t=>t.guruId===g.id));const tot={};
+  const rows=gl.map(g=>{const ts=all('tugas').filter(t=>t.guruId===g.id);const mp=[7,8,9].map(t=>[...new Set(ts.filter(x=>+get('kelas',x.kelasId)?.tingkat===t).map(x=>mNama(x.mapelId)))].join(', '));let n=0;
+    const cs=kl.map(k=>{const v=ts.filter(t=>t.kelasId===k.id).reduce((a,t)=>a+tugasJP(t),0);n+=v;tot[k.id]=(tot[k.id]||0)+v;return `<td class="${tk.has(k.id)?'tk':''}">${v||''}</td>`}).join('');
+    const wk=kl.filter(k=>k.waliId===g.id).map(kk).join(', ');return `<tr><td>${esc(wsKode(g))}</td><td class="l">${esc(g.nama)}</td>${mp.map(x=>`<td class="l" style="font-size:7.5px">${esc(x)}</td>`).join('')}${cs}<td><b>${n}</b></td><td>${esc(wk)}</td></tr>`});
+  const hd=`<thead><tr><th rowspan="2" style="width:22px">KODE</th><th rowspan="2" class="l" style="width:150px">NAMA</th><th colspan="3">Mata Pelajaran di kelas:</th><th colspan="${kl.length}">KELAS / JUMLAH JAM PELAJARAN PER KELAS</th><th rowspan="2" style="width:26px">JML<br>JAM</th><th rowspan="2" style="width:32px">WALI<br>KELAS</th></tr><tr><th style="width:46px">7</th><th style="width:46px">8</th><th style="width:46px">9</th>${kl.map(k=>`<th class="${tk.has(k.id)?'tk':''}">${esc(kk(k))}</th>`).join('')}</tr></thead>`;
+  const ch=wsChunk(rows,40);return ch.map((part,i)=>LAND+FIT+WCSS+`<style>.paper table.w td{height:13px}</style>`+wsJudul('PEMBAGIAN JAM MENGAJAR (DESIGN) '+esc(SEKOLAH()))+`<table class="w">${hd}<tbody>${part.join('')}${i===ch.length-1?`<tr><td colspan="5"><b>JUMLAH</b></td>${kl.map(k=>`<td class="${tk.has(k.id)?'tk':''}"><b>${tot[k.id]||''}</b></td>`).join('')}<td><b>${Object.values(tot).reduce((a,b)=>a+b,0)}</b></td><td></td></tr>`:''}</tbody></table>`+(i===ch.length-1?wsTtdKS():''))}
+
+/* 20. DATA umum */
+function gWsData(){const c=S.cfg;const R=[['PEMERINTAH','KOTA TANGERANG'],['DINAS','DINAS PENDIDIKAN'],['Sekolah',SEKOLAH()],['Alamat Sekolah',c.alamat||''],['Kepala Sekolah',c.kepsek||''],['NIP.',c.nipKepsek||''],['Semester',wsSem()],['Tahun Pelajaran',wsTP()],['Dibuat tanggal',c.jdTgl||''],['Pembuat Jadwal',c.jdPembuat||''],['NIP.',c.jdNip||''],['Jenjang Pendidikan','SMP'],['Tempat',c.tempatSK||'']];
+  return [`<p class="ttl" style="margin-bottom:10px">DATA UMUM JADWAL PELAJARAN</p><table><tbody>${R.map(([a,b])=>`<tr><td style="width:200px">${esc(a)}</td><td>${esc(b)}</td></tr>`).join('')}</tbody></table>`]}
+
+/* daftar worksheet */
+const WS_LIST=[
+ ['Jadwal',[
+  ['data','Data','Data umum',null,gWsData],
+  ['design','DESIGN','Pembagian jam guru × kelas',null,()=>gWsDesign()],
+  ['susun','SUSUN','Susun per hari (kode guru)',null,()=>gWsSusun()],
+  ['rg','RG','Rekapitulasi jadwal guru',null,()=>gWsRG()],
+  ['rpg','RPG','Rekap per guru (9 per halaman)','guru',id=>gWsRPG(id),()=>gWsRPG()],
+  ['jdk','Jdw-Kelas','Jadwal per kelas','kelas',id=>gJadwalKelas(id),()=>kelasList().flatMap(k=>gJadwalKelas(k.id))],
+  ['rkl','RKL','Jadwal kelas (mapel + guru)','kelas',id=>gWsRKL(id),()=>kelasList().flatMap(k=>gWsRKL(k.id))],
+  ['jm','Jadwal Manual','Jadwal mengajar + piket',null,()=>gJadwalInduk('kode').map(p=>isLand(p)?p:LAND+p)],
+  ['rh','RH / Harian','Jadwal sesuai hari masuk','hari',id=>gWsHarian(+id),()=>S.cfg.hari.flatMap((h,i)=>gWsHarian(i))],
+  ['wk','WK','Daftar wali kelas',null,()=>gWsWK()],
+  ['cover','Cover','Sampul daftar hadir guru','bulan',id=>gWsCover(id)]]],
+ ['Jurnal & Blanko',[
+  ['jnal1','JNAL1','Jurnal kegiatan pembelajaran di kelas','kelas',id=>gWsJnal1(id),()=>kelasList().flatMap(k=>gWsJnal1(k.id))],
+  ['jnal2','JNAL2','Jurnal mengajar guru','guru',id=>gJurnal(id),()=>guruJadwalList().flatMap(g=>gJurnal(g.id))],
+  ['blanko','BLANKO','Rekapitulasi absensi guru (blanko)','kelas',id=>gWsBlanko(id),()=>gWsBlanko()],
+  ['tbh','Tbh','Hari masuk tambahan',null,()=>gWsTbh()],
+  ['paraf','PARAF','Daftar kehadiran guru bulanan','bulan',id=>gWsParaf(id)]]],
+ ['Kehadiran Guru',[
+  ['hdr1','HDR1','Daftar hadir guru dalam KBM (per kelas)','kelas',id=>gWsHdr1(id),()=>kelasList().flatMap(k=>gWsHdr1(k.id))],
+  ['hdr2','HDR2','Kartu absent guru','guru',id=>gWsHdr2(id),()=>guruJadwalList().flatMap(g=>gWsHdr2(g.id))],
+  ['rhd','R-HD','Rekapitulasi kehadiran guru',null,()=>gWsRHD()],
+  ['rank','Peringkat','Peringkat 15 besar',null,()=>gWsPeringkat()],
+  ['grafik','GRAFIK','Grafik ketidakhadiran',null,()=>gWsGrafik()],
+  ['kal','KAL','Hari efektif & libur',null,()=>gWsKal()]]]];
+const wsFind=id=>WS_LIST.flatMap(g=>g[1]).find(x=>x[0]===id);
+function wsOpts(t){if(t==='kelas')return kelasList().map(k=>[k.id,k.nama]);if(t==='guru')return guruJadwalList().map(g=>[g.id,(kodeG(g)?kodeG(g)+'. ':'')+g.nama]);if(t==='hari')return S.cfg.hari.map((h,i)=>[String(i),h]);
+  if(t==='bulan')return kalBulan().slice(0,12).map(({y,m})=>[y+'-'+String(m+1).padStart(2,'0'),WS_BLN[m]+' '+y]);return []}
+function wsEditor(id){
+  if(id==='rhd'||id==='rank'||id==='grafik'){const A=wsAbs();const D=wsAbsData();
+    return `<details class="card small" ${UI.wsAbsOpen?'open':''} ontoggle="UI.wsAbsOpen=this.open"><summary><b>✏️ Isi data ketidakhadiran guru</b> (tersimpan otomatis)</summary>
+    <div class="bar" style="flex-wrap:wrap;gap:8px;margin:8px 0">Masa KBM <input type="number" min="1" style="width:60px" value="${esc(A.mg)}" onchange="wsAbsMeta('mg',+this.value||0)"> minggu · Bulan <input style="width:100px" value="${esc(A.dari)}" placeholder="Januari" onchange="wsAbsMeta('dari',this.value)"> s.d. <input style="width:100px" value="${esc(A.sd)}" placeholder="April" onchange="wsAbsMeta('sd',this.value)"> Tahun <input style="width:70px" value="${esc(A.thn)}" placeholder="${wsY0()}" onchange="wsAbsMeta('thn',this.value)"></div>
+    <div class="tw" style="max-height:340px;overflow:auto"><table><thead><tr><th>Nama</th><th class="n">JP/mg</th><th>T (terlambat)</th><th>S (sakit)</th><th>I/D (izin/dinas)</th><th>A (alpa)</th></tr></thead><tbody>${D.map(r=>`<tr><td>${esc(r.g.nama)}</td><td class="n">${r.jp}</td>${['t','s','i','a'].map(k=>`<td><input type="number" min="0" style="width:64px" value="${esc((A.d[r.g.id]||{})[k]??'')}" onchange="wsAbsSet('${r.g.id}','${k}',this.value)"></td>`).join('')}</tr>`).join('')}</tbody></table></div>
+    <p class="muted">Angka = jumlah jam pelajaran tidak hadir selama masa KBM (dari rekap daftar hadir di kelas). Persentase dihitung dari JP/minggu × jumlah minggu.</p></details>`}
+  if(id==='kal'){const T=wsKalTabel(true);return `<div class="card small"><b>✏️ Atur kalender:</b> pilih kode, lalu klik tanggal. Klik lagi untuk menghapus. Sabtu/Minggu otomatis LU.<div class="bar" style="flex-wrap:wrap;gap:6px;margin:6px 0">${KAL_KODE.map(([k,l,w])=>`<button class="btn sm${(UI.kalPil||'LHB')===k?' p':''}" style="${(UI.kalPil||'LHB')===k?'':'background:'+w}" title="${l}" onclick="UI.kalPil='${k}';render()">${k}</button>`).join('')}<span class="muted">Semester I: <b>${T.s1}</b> hari efektif · Semester II: <b>${T.s2}</b> hari efektif</span></div>
+    <div class="tw" style="overflow:auto">${WCSS.replace('.paper table.w','table.w').replace(/\.paper /g,'')}${T.html}</div></div>`}
+  if(id==='tbh'){const H=S.cfg.hari;return `<details class="card small" ${UI.wsTbhOpen?'open':''} ontoggle="UI.wsTbhOpen=this.open"><summary><b>✏️ Atur hari masuk tambahan</b> (tersimpan otomatis)</summary><div class="tw" style="max-height:340px;overflow:auto"><table><thead><tr><th>Nama</th><th>Hari mengajar</th><th>Tambahan 1</th><th>Tambahan 2</th><th>Tambahan 3</th></tr></thead><tbody>${guruJadwalList().map(g=>{const aj=wsHariAjar(g.id);const kos=H.filter(h=>!aj.includes(h));const tb=S.cfg.tbh?.[g.id]||[];
+    return `<tr><td>${esc(g.nama)}</td><td class="small">${esc(aj.join(', '))}</td>${[0,1,2].map(k=>`<td><select onchange="tbhSet('${g.id}',${k},this.value)"><option value="">—</option>${kos.map(h=>`<option ${tb[k]===h?'selected':''}>${h}</option>`).join('')}</select></td>`).join('')}</tr>`}).join('')}</tbody></table></div></details>`}
+  if(id==='data')return `<div class="card small"><b>✏️ Data pembuat jadwal</b><div class="bar" style="flex-wrap:wrap;gap:8px;margin-top:6px">Pembuat <input style="width:220px" value="${esc(S.cfg.jdPembuat||'')}" onchange="S.cfg.jdPembuat=this.value;saveCfg();render()"> NIP <input style="width:180px" value="${esc(S.cfg.jdNip||'')}" onchange="S.cfg.jdNip=this.value;saveCfg();render()"> Dibuat tanggal <input style="width:150px" value="${esc(S.cfg.jdTgl||'')}" placeholder="1 Oktober 2026" onchange="S.cfg.jdTgl=this.value;saveCfg();render()"></div></div>`;
+  return ''}
+function vJFormat(){const id=UI.wsTab||'susun';const it=wsFind(id)||wsFind('susun');const [k,sheet,label,ot,f,fa]=it;
+  const tabs=`<div class="tabs" style="flex-wrap:wrap">${WS_LIST.map(([g,L])=>`<span class="small muted" style="align-self:center;margin:0 4px 0 8px">${g}:</span>`+L.map(x=>`<a class="${x[0]===k?'on':''}" title="${esc(x[2])}" onclick="UI.wsTab='${x[0]}';render()">${esc(x[1])}</a>`).join('')).join('')}</div>`;
+  let opt='',fn=()=>f();
+  if(ot){const O=wsOpts(ot);UI.wsOpt=UI.wsOpt||{};let v=UI.wsOpt[ot];const semua=!!fa;
+    if(v==null||(v!=='__all'&&!O.some(o=>o[0]===v)))v=UI.wsOpt[ot]=ot==='bulan'?(()=>{const d=new Date();const t=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');return O.some(o=>o[0]===t)?t:O[0]?.[0]})():(O[0]?.[0]||'');
+    opt=`<select onchange="UI.wsOpt['${ot}']=this.value;render()">${semua?`<option value="__all" ${v==='__all'?'selected':''}>Semua (${O.length})</option>`:''}${O.map(([a,b])=>`<option value="${esc(a)}" ${a===v?'selected':''}>${esc(b)}</option>`).join('')}</select>`;
+    fn=v==='__all'?fa:()=>f(v)}
+  const kosong=!kelasList().length||!all('tugas').length;
+  return tabs+`<div class="bar"><span><b>${esc(sheet)}</b> — ${esc(label)}</span>${opt}<span class="sp"></span></div>`+wsEditor(k)+(kosong&&!['kal','cover','data','paraf'].includes(k)?`<div class="card empty">Isi dulu kelas, pembagian mengajar, dan jadwal.</div>`:vCetakSimple(sheet+' - '+label,fn))}
+
+/* piket manual */
+function pkPindah(h,id,arah){const L=(S.cfg.piket?.[h]||[]).slice();const i=L.indexOf(id),j=i+arah;if(i<0||j<0||j>=L.length)return;[L[i],L[j]]=[L[j],L[i]];S.cfg.piket=Object.assign({},S.cfg.piket,{[h]:L});saveCfg();render()}
+function pkKeHari(h,id,h2){if(!h2||h2===h)return;const P=Object.assign({},S.cfg.piket||{});P[h]=(P[h]||[]).filter(x=>x!==id);P[h2]=[...(P[h2]||[]).filter(x=>x!==id),id];S.cfg.piket=P;saveCfg();render()}
+async function pkSinkronTT(){const by={};S.cfg.hari.forEach(h=>by[h]=S.cfg.piket?.[h]||[]);await piketTerapkan(by);toast('Daftar piket di Tugas Tambahan ikut diperbarui')}
+function vPiketManual(){const c=S.cfg;const H=c.hari.filter(h=>h!=='Sabtu'||(c.piket?.Sabtu||[]).length);const P=c.piket||{};const sudah={};H.forEach(h=>(P[h]||[]).forEach(id=>(sudah[id]=sudah[id]||[]).push(h)));
+  const opsi=h=>guruList().filter(g=>!(P[h]||[]).includes(g.id)).map(g=>{const s=sudah[g.id];const jp=(()=>{const m=petaGuru(g.id);const hi=c.hari.indexOf(h);return Object.keys(m).filter(x=>+x.split('-')[0]===hi).reduce((a,x)=>a+m[x].length,0)})();return `<option value="${g.id}">${esc(g.nama)} · ${jp} JP${s?' · sudah '+s.join('/'):''}</option>`}).join('');
+  return `<div class="card"><h3 style="margin-top:0">✏️ Atur piket manual</h3><p class="small muted">Tambah, hapus, urutkan, atau pindahkan petugas ke hari lain. Tersimpan otomatis; bisa dibatalkan dengan ↶ Urungkan. Angka JP = jam mengajar guru di hari itu.</p>
+  <div style="display:grid;grid-template-columns:repeat(${H.length},minmax(150px,1fr));gap:10px;overflow:auto">${H.map(h=>`<div style="border:1px solid var(--line);border-radius:10px;padding:8px;background:#fff"><div style="display:flex;justify-content:space-between"><b>${h}</b><span class="small muted">${(P[h]||[]).length} orang</span></div>
+   ${(P[h]||[]).map((id,i,a)=>{const g=get('guru',id);const dob=(sudah[id]||[]).length>1;return `<div style="display:flex;align-items:center;gap:3px;margin:4px 0;padding:3px 4px;border-radius:6px;background:${dob?'#fdecec':'#f6f4ef'}"><span class="small" style="flex:1;line-height:1.2">${i+1}. ${esc(g?g.nama:'(guru terhapus)')}${dob?'<br><span style="color:var(--bad)">piket '+esc(sudah[id].join(' & '))+'</span>':''}</span>
+    <button class="btn sm" style="padding:0 4px" title="Naik" ${i?'':'disabled'} onclick="pkPindah('${h}','${id}',-1)">↑</button><button class="btn sm" style="padding:0 4px" title="Turun" ${i<a.length-1?'':'disabled'} onclick="pkPindah('${h}','${id}',1)">↓</button>
+    <select class="small" style="width:22px;padding:0" title="Pindah ke hari lain" onchange="pkKeHari('${h}','${id}',this.value)"><option value="">⇄</option>${H.filter(x=>x!==h).map(x=>`<option value="${x}">${x}</option>`).join('')}</select>
+    <button class="btn sm d" style="padding:0 4px" title="Hapus" onclick="pkDel('${h}','${id}')">✕</button></div>`}).join('')}
+   <select style="width:100%;margin-top:4px" onchange="pkAdd('${h}',this.value)"><option value="">＋ Tambah petugas…</option>${opsi(h)}</select></div>`).join('')}</div>
+  <div class="bar" style="margin-top:8px"><span class="small muted">Daftar piket ini dipakai di cetakan Jadwal Induk, Jadwal Piket, dan Harian.</span><span class="sp"></span><button class="btn" onclick="pkSinkronTT()">Samakan ke Tugas Tambahan (SK)</button></div></div>`}
+
 /* ===== penyusun piket otomatis ===== */
 function piketHitung(){const c=S.cfg,A=ATURAN();const hari=c.hari.filter(h=>h!=='Sabtu');const per=+(c.aturan?.piketPerHari)||5,cap=+(c.aturan?.piketMaksJP)||A.idealHarian||6;
   const noP=new Set((c.aturan?.noPiket)||[]);const ks=kepsekGuru();const tt=ttAll();
@@ -3640,7 +3875,7 @@ const NAV=[
   ['Cetak',[['cetak','🖨','Cetak & Simpan']],'#f0b6d0'],
   ['Sistem',[['pengaturan','⚙','Pengaturan']],'#b9c7c2']
 ];
-const NAV_J=[['Data Kelas & Guru',[['j_kelas','▤','Kelas & Wali Kelas'],['j_tugas','⇄','Pembagian Mengajar']],'#c7b3f5'],['Jadwal Pelajaran',[['j_lihat','▥','Isi & Lihat Jadwal'],['j_susun','⚡','Susun Otomatis']],'#f5c97a'],['Piket',[['j_piket','☀','Piket Guru']],'#a8dba0'],['Cadangan',[['j_cadangan','📁','Cadangan Skema']],'#8ec5ff'],['Cetak',[['j_cetak','🖨','Cetak Jadwal']],'#f0b6d0']];
+const NAV_J=[['Data Kelas & Guru',[['j_kelas','▤','Kelas & Wali Kelas'],['j_tugas','⇄','Pembagian Mengajar']],'#c7b3f5'],['Jadwal Pelajaran',[['j_lihat','▥','Isi & Lihat Jadwal'],['j_susun','⚡','Susun Otomatis']],'#f5c97a'],['Piket',[['j_piket','☀','Piket Guru']],'#a8dba0'],['Cadangan',[['j_cadangan','📁','Cadangan Skema']],'#8ec5ff'],['Cetak',[['j_cetak','🖨','Cetak Jadwal'],['j_format','🗂','Format Worksheet']],'#f0b6d0']];
 if(JMODE)NAV.splice(0,NAV.length,...NAV_J);
 const JRG={j_lihat:0,j_susun:1,j_cetak:2};
 const jGrup=t=>JTAB.findIndex(g=>g[1].some(x=>x[0]===t));
@@ -3778,8 +4013,8 @@ function vRpel(){const U=UI.rpl=UI.rpl||{};const t=rpTingkat();const kl=rpKelas(
   <div class="tw"><table><thead><tr><th>No</th><th>NISN / NIS</th><th>Nama</th><th>L/P</th><th>Data tambahan</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="6" class="empty">Belum ada siswa aktif.</td></tr>'}</tbody></table></div>`}
 
 const VIEWS={rpel:vRpel,abk:vABK,surat:vSurat,sk:vSK,cetak:vCetak,panitia:()=>guruList().length?ttPanitia():'<div class="card empty">Tambahkan data <a href="#guru">Guru</a> dulu.</div>',rapor:vRapor,ujian:vUjian,tt:vTT,dashboard:vDashboard,siswa:vSiswa,guru:vGuru,kelas:vKelas,mapel:vMapel,tugas:vTugas,jadwal:vJadwal,nilai:vNilai,supervisi:vSupervisi,perangkat:vPerangkat,agenda:()=>crudView('agenda'),kokurikuler:()=>`<div class="card small" style="background:var(--pri2);border-color:#cfe2da">Kokurikuler (pengganti P5) dapat berupa pembelajaran kolaboratif lintas disiplin, Gerakan 7 Kebiasaan Anak Indonesia Hebat, atau cara lain, dan dirancang untuk mengembangkan 8 dimensi profil lulusan.</div>`+crudView('kokurikuler'),proker:()=>crudView('proker'),pengganti:()=>crudView('pengganti'),pengaturan:vPengaturan,jadwalapp:vJadwalApp,
-  j_kelas:vJKelas,j_tugas:vJTugas,j_lihat:vJadwal,j_susun:vJadwal,j_cetak:vJadwal,j_cadangan:()=>vCadangan(),
-  j_piket:()=>{if(!kelasList().length||!all('tugas').length)return vJadwal();return `<div class="bar"><span class="muted small">Atur manual (tambah/hapus petugas) di <a style="cursor:pointer;text-decoration:underline" onclick="UI.tab.jadwal='waktu';location.hash='#j_susun'">Susun Jadwal → Waktu &amp; Piket</a>.</span><span class="sp"></span><button class="btn p" onclick="piketOtomatis()">⚡ Susun piket otomatis</button></div>`+vCetakSimple('Jadwal Guru Piket',()=>[gPiketDoc()])}};
+  j_kelas:vJKelas,j_format:vJFormat,j_tugas:vJTugas,j_lihat:vJadwal,j_susun:vJadwal,j_cetak:vJadwal,j_cadangan:()=>vCadangan(),
+  j_piket:()=>{if(!kelasList().length||!all('tugas').length)return vJadwal();return `<div class="bar"><span class="muted small">Susun otomatis dulu, lalu rapikan manual di bawah — atau isi manual sepenuhnya.</span><span class="sp"></span><button class="btn p" onclick="piketOtomatis()">⚡ Susun piket otomatis</button></div>`+vPiketManual()+vCetakSimple('Jadwal Guru Piket',()=>[gPiketDoc()])}};
 function route(){const h=location.hash.replace('#','');if(h==='panitia'){UI.tab=UI.tab||{};UI.tab.tt='kelola';UI.grpK='Kepanitiaan';history.replaceState(null,'','#tt');return 'tt'}if(JMODE){let r=h;if(r==='jadwal'){const g=jGrup(UI.tab.jadwal);r=g>=0?['j_lihat','j_susun','j_cetak'][g]:'j_lihat';history.replaceState(null,'','#'+r)}
     if(!NAV_J.some(g=>g[1].some(x=>x[0]===r)))r='j_lihat';
     if(r in JRG){const gi=JRG[r];if(UI._jr!==r){if(jGrup(UI.tab.jadwal)!==gi)UI.tab.jadwal=(UI.jtLast&&UI.jtLast[gi])||JTAB[gi][1][0][0]}
