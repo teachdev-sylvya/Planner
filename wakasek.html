@@ -214,6 +214,7 @@ td.n{text-align:center!important}
 <div id="toast"></div>
 
 <script>
+const JMODE=/[?&]app=jadwal/.test(location.search);if(JMODE)document.title='Jadwal Pelajaran';
 /* ============================ UTIL ============================ */
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -863,8 +864,7 @@ function naikKelas(){
 /* ============================ VIEW: PEMBAGIAN TUGAS ============================ */
 function vTugas(){
   const tab=UI.tab.tugas||'guru';const c=S.cfg;
-  const tabs=`<div class="tabs"><a class="${tab==='guru'?'on':''}" onclick="UI.tab.tugas='guru';render()">Beban per Guru</a><a class="${tab==='matrix'?'on':''}" onclick="UI.tab.tugas='matrix';render()">Matriks Kelas × Mapel</a><a class="${tab==='cadangan'?'on':''}" onclick="UI.tab.tugas='cadangan';render()">📁 Cadangan</a></div>`;
-  if(tab==='cadangan')return tabs+vCadangan();
+  const tabs=`<div class="tabs"><a class="${tab==='guru'?'on':''}" onclick="UI.tab.tugas='guru';render()">Beban per Guru</a><a class="${tab==='matrix'?'on':''}" onclick="UI.tab.tugas='matrix';render()">Matriks Kelas × Mapel</a></div>`;
   const bar=`<div class="bar"><span class="muted small">Minimal beban kerja ${c.minJP} JP tatap muka/minggu termasuk ekuivalensi tugas tambahan (Permendikdasmen 11/2025). Jam tambahan diambil dari menu Tugas Tambahan.</span><span class="sp"></span><button class="btn" onclick="exportTugas()">Ekspor lampiran SK</button><button class="btn p" onclick="tugasForm()">+ Tugaskan guru</button></div>`;
   if(!guruList().length||!kelasList().length||!mapelList().length)return tabs+`<div class="card empty">Lengkapi dulu data <a href="#guru">Guru</a>, <a href="#kelas">Kelas</a>, dan <a href="#mapel">Mata Pelajaran</a>.</div>`;
   if(tab==='guru'){
@@ -980,7 +980,7 @@ function piketOtomatis(){const K=piketHitung();const ex=Object.entries(K.alasan)
   <details class="small"><summary>Tidak dipasang piket (${ex.length})</summary>${ex.map(([g,a])=>esc(short(gNama(g))+' – '+a)).join('<br>')}</details>
   <div class="mfoot"><button class="btn" onclick="closeModal()">Batal</button><button class="btn p" id="pkGo">Terapkan</button></div>`,true);
   $('#pkGo').onclick=async()=>{closeModal();await piketTerapkan(K.by);toast('Piket disusun. Bisa dibatalkan dengan ↶ Urungkan.');render()}}
-function sknBanner(){const id=sknAktif();if(id===SKN_UTAMA)return '';return `<div class="alert" style="background:#fff4d6;border:1.5px solid #e0b100;margin-bottom:10px"><span>📁 Sedang membuka cadangan <b>${esc(sknNama(id))}</b>. Perubahan pembagian tugas &amp; jadwal hanya masuk ke cadangan ini.</span><span class="sp"></span><button class="btn sm" onclick="confirmBox('Susun ulang jadwal pelajaran dan piket di cadangan ini secara otomatis? Jadwal lama di cadangan ini tetap bisa dikembalikan lewat ↶ Urungkan / Versi.',()=>sknSusunSemua(sknNama(sknAktif())),'Susun')">⚡ Susun jadwal &amp; piket</button> <button class="btn sm" onclick="sknBuka('${SKN_UTAMA}')">Kembali ke data utama</button></div>`}
+function sknBanner(){const id=sknAktif();if(id===SKN_UTAMA)return '';return `<div class="alert" style="background:#fff4d6;border:1.5px solid #e0b100;margin-bottom:10px"><span>📁 Sedang membuka cadangan <b>${esc(sknNama(id))}</b>. Perubahan pembagian tugas &amp; jadwal hanya masuk ke cadangan ini.</span><span class="sp"></span>${JMODE?`<button class="btn sm" onclick="confirmBox('Susun ulang jadwal pelajaran dan piket di cadangan ini secara otomatis? Jadwal lama di cadangan ini tetap bisa dikembalikan lewat ↶ Urungkan / Versi.',()=>sknSusunSemua(sknNama(sknAktif())),'Susun')">⚡ Susun jadwal &amp; piket</button>`:`<button class="btn sm" onclick="bukaAppJadwal()">▥ Buka aplikasi Jadwal ↗</button>`} <button class="btn sm" onclick="sknBuka('${SKN_UTAMA}')">Kembali ke data utama</button></div>`}
 function vCadangan(){const L=sknList();const ak=sknAktif();if(!get('skenario',SKN_UTAMA)&&ak===SKN_UTAMA)L.unshift({id:SKN_UTAMA,nama:'Data utama (semester berjalan)',ket:'Belum pernah disimpan sebagai cadangan',_baru:1});
   const jp=o=>Object.values(o.tugas||{}).reduce((a,t)=>a+(+t.jp||0),0);
   const rows=L.map(o=>{const on=o.id===ak;return `<tr${on?' style="background:#eaf6f1"':''}><td><b>${esc(o.nama)}</b>${on?' <span class="tag ok">sedang dibuka</span>':''}<div class="small muted">${esc(o.ket||'')}</div></td><td class="small">${o.disimpan?sknTgl(o.disimpan):(o.dibuat&&!o._baru?sknTgl(o.dibuat):'–')}</td><td class="c small">${o._baru?'–':Object.keys(o.tugas||{}).length+' tugas · '+jp(o)+' JP'}</td>
@@ -1202,6 +1202,7 @@ const JTAB=[['Lihat & Edit',[['kelas','Per Kelas (edit & kunci)'],['guru','Per G
   ['Susun Jadwal',[['susun','⚡ Susun Ulang'],['versi','Versi Jadwal'],['aturan','Aturan Penyusunan'],['waktu','Waktu & Piket']]],
   ['🖨 Cetak',[['p_induk','Jadwal Induk (kode guru + piket)'],['p_indukm','Jadwal Pelajaran Induk'],['ck','Jadwal per Kelas'],['cg','Jadwal per Guru'],['ak','Agenda Kelas'],['ag','Jurnal Mengajar'],['p_hadir','Daftar Hadir Guru'],['p_rekapjp','Rekap JP Guru'],['p_piket','Jadwal Piket'],['p_semua','📦 Paket Lengkap']]]];
 function jadwalTabs(tab){const gi=Math.max(0,JTAB.findIndex(g=>g[1].some(x=>x[0]===tab)));UI.jtLast=Object.assign(UI.jtLast||{},{[gi]:tab});
+  if(JMODE)return `<div class="tabs">${JTAB[gi][1].map(([k,l])=>`<a class="${k===tab?'on':''}" onclick="UI.tab.jadwal='${k}';render()">${l}</a>`).join('')}</div>`;
   return `<div class="tabs jg">${JTAB.map((g,i)=>`<a class="${i===gi?'on':''}" onclick="UI.tab.jadwal='${UI.jtLast[i]||g[1][0][0]}';render()">${g[0]}</a>`).join('')}</div><div class="tabs sub">${JTAB[gi][1].map(([k,l])=>`<a class="${k===tab?'on':''}" onclick="UI.tab.jadwal='${k}';render()">${l}</a>`).join('')}</div>`}
 function vCetakSimple(nama,fn,land){return `<div class="bar">${cetakBar(nama,fn,null,null,land)}</div>${docPreview(fn(),land)}`}
 const ttdKS1=()=>`<div class="ttd" style="page-break-inside:avoid"><div>${esc(S.cfg.tempatSK||'')}, ${tglIndo()}<br>Kepala Sekolah,${ttdBlok(TTDON())}<u>${esc(S.cfg.kepsek||'')}</u><br>NIP. ${esc(S.cfg.nipKepsek||'')}</div></div>`;
@@ -2681,7 +2682,7 @@ function ckKatalog(){
     {id:'rsiswa',l:'Rekap data siswa',opts:()=>[['sekolah','Satu sekolah saja'],['7','Kelas VII per rombel'],['8','Kelas VIII per rombel'],['9','Kelas IX per rombel']],semua:'Semua (satu sekolah + per tingkat)',f:v=>v==='sekolah'?[gRekapSekolah()]:gRekapTingkat(v),fa:()=>gRekapSiswa()},
     {id:'duk',l:'DUK guru & tenaga kependidikan',f:()=>L(dukPages())}],
     x:[['Data siswa',()=>exportCrud('siswa')],['Data guru',()=>exportCrud('guru')],['Rekap siswa',exportRekapSiswa],['DUK (salin tabel)',exportDUK],...(S.dl?[['DUK (file Excel)',unduhDUKxls]]:[])]});
-  G.push({j:'Tugas & Jadwal',w:'#f5c97a',d:[
+  G.push({j:'Tugas',w:'#f5c97a',d:[
     {id:'induk',l:'Jadwal mengajar (kode guru + piket)',f:()=>L(gJadwalInduk('kode'))},
     {id:'indukm',l:'Jadwal pelajaran induk (mapel + guru)',f:()=>L(gJadwalInduk('mapel'))},
     {id:'jkelas',l:'Jadwal kelas',opts:kl,semua:'Semua kelas',f:id=>gJadwalKelas(id),fa:()=>kelasList().flatMap(k=>gJadwalKelas(k.id))},
@@ -2693,9 +2694,9 @@ function ckKatalog(){
     {id:'agenda',l:'Agenda kelas',opts:kl,semua:'Semua kelas',f:id=>gAgendaKelas(id,UI.cj?.tgl),fa:()=>kelasList().flatMap(k=>gAgendaKelas(k.id,UI.cj?.tgl))},
     {id:'jurnal',l:'Jurnal mengajar guru',opts:gl,semua:'Semua guru',f:id=>gJurnal(id),fa:()=>guruJadwalList().flatMap(g=>gJurnal(g.id))},
     {id:'hadir',l:'Daftar hadir guru & rekap absensi',opts:()=>S.cfg.hari.map((h,i)=>[String(i),h]),semua:'Semua hari',f:id=>gDaftarHadir(+id),fa:()=>S.cfg.hari.flatMap((h,i)=>gDaftarHadir(i))},
-    {id:'surat',l:'Surat tugas (arsip)',opts:()=>suAll().map(d=>[d.id,tglL(d.tglSurat)+' · '+(d.kegiatan||d.nomor||'')]),semua:'Semua surat di arsip',f:id=>gSuratUmum(get('surat',id)),fa:()=>suAll().flatMap(d=>gSuratUmum(d))},
-    {id:'sk',l:'SK pembagian tugas & lampiran',opts:()=>lampListAll().map(x=>[x.id,x.label]),semua:'SK lengkap (cover + SK + semua lampiran)',f:id=>{const x=lampListAll().find(y=>y.id===id);return x?[x.f()]:[]},fa:()=>skLengkap()}],
-    x:[['Pembagian tugas',exportTugas],['Jadwal pelajaran (per jam)',exportJadwal],['Tugas tambahan',exportTT],['Rekap tugas tambahan',exportRekapTT]]});
+    ].filter(x=>JMODE||!['induk','indukm','jkelas','jguru','g12','rekapjp','piket','agenda','jurnal','hadir'].includes(x.id)).concat([{id:'surat',l:'Surat tugas (arsip)',opts:()=>suAll().map(d=>[d.id,tglL(d.tglSurat)+' · '+(d.kegiatan||d.nomor||'')]),semua:'Semua surat di arsip',f:id=>gSuratUmum(get('surat',id)),fa:()=>suAll().flatMap(d=>gSuratUmum(d))},
+    {id:'sk',l:'SK pembagian tugas & lampiran',opts:()=>lampListAll().map(x=>[x.id,x.label]),semua:'SK lengkap (cover + SK + semua lampiran)',f:id=>{const x=lampListAll().find(y=>y.id===id);return x?[x.f()]:[]},fa:()=>skLengkap()}]),
+    x:[['Pembagian tugas',exportTugas],...(JMODE?[['Jadwal pelajaran (per jam)',exportJadwal]]:[]),['Tugas tambahan',exportTT],['Rekap tugas tambahan',exportRekapTT]]});
   const kr=typeof kelasRapor==='function'?kelasRapor():[];
   G.push({j:'Penilaian',w:'#f4a3a3',d:kr.length?[
     {id:'skl',pdf:'skl',l:'SKL kelas IX',opts:()=>kr.map(k=>[k.id,k.nama]),semua:'Semua kelas IX',f:id=>siswaKelas(id).map(gSKL),fa:()=>siswaIX().map(gSKL)},
@@ -3582,13 +3583,22 @@ function gABK(){const R=abkData();const Z=abkRingkas(R);const M=abkMapel();
 const NAV=[
   ['Beranda',[['dashboard','◧','Dasbor']],'#9fd4c0'],
   ['Data Sekolah',[['siswa','◔','Siswa'],['guru','◑','Guru & DUK'],['kelas','▤','Kelas & Rombel'],['mapel','▦','Mata Pelajaran']],'#8ec5ff'],
-  ['Tugas & Jadwal',[['tugas','⇄','Pembagian Tugas'],['jadwal','▥','Jadwal Pelajaran'],['tt','✦','Tugas Tambahan & Kepanitiaan'],['abk','⚖','Analisis Beban Kerja'],['surat','✉','Surat Tugas'],['sk','§','SK Tim & Kepanitiaan'],['pengganti','↺','Guru Pengganti']],'#f5c97a'],
+  ['Tugas',[['tugas','⇄','Pembagian Tugas'],['jadwalapp','▥','Jadwal Pelajaran ↗'],['tt','✦','Tugas Tambahan & Kepanitiaan'],['abk','⚖','Analisis Beban Kerja'],['surat','✉','Surat Tugas'],['sk','§','SK Tim & Kepanitiaan'],['pengganti','↺','Guru Pengganti']],'#f5c97a'],
   ['Penilaian',[['nilai','✎','Nilai & Leger'],['rapor','✍','Nilai Rapor Kelas IX'],['ujian','▣','Perangkat Ujian'],['rpel','❏','Rapor Pelengkap']],'#f4a3a3'],
   ['Supervisi & Mutu',[['supervisi','★','Supervisi & Kinerja'],['perangkat','☑','Perangkat Ajar']],'#c7b3f5'],
   ['Kegiatan & Program',[['agenda','◷','Kalender Akademik'],['kokurikuler','✿','Kokurikuler'],['proker','◎','Program Kerja']],'#a8dba0'],
   ['Cetak',[['cetak','🖨','Cetak & Simpan']],'#f0b6d0'],
   ['Sistem',[['pengaturan','⚙','Pengaturan']],'#b9c7c2']
 ];
+const NAV_J=[['Jadwal Pelajaran',[['j_lihat','▥','Lihat & Edit'],['j_susun','⚡','Susun Jadwal']],'#f5c97a'],['Piket',[['j_piket','☀','Piket Guru']],'#a8dba0'],['Cadangan',[['j_cadangan','📁','Cadangan Skema']],'#8ec5ff'],['Cetak',[['j_cetak','🖨','Cetak Jadwal']],'#f0b6d0']];
+if(JMODE)NAV.splice(0,NAV.length,...NAV_J);
+const JRG={j_lihat:0,j_susun:1,j_cetak:2};
+const jGrup=t=>JTAB.findIndex(g=>g[1].some(x=>x[0]===t));
+function bukaAppJadwal(){const w=window.open('jadwal.html','_blank');if(!w)location.href='jadwal.html'}
+function vJadwalApp(){return `<div class="card" style="max-width:640px"><h2 style="margin-top:0">▥ Jadwal pelajaran sekarang punya aplikasi sendiri</h2>
+  <p>Menyusun jadwal, piket guru, cadangan skema (mis. Januari 2027), dan cetak jadwal sekarang ada di aplikasi <b>Jadwal Pelajaran</b>. Data pembagian tugas dari sini langsung terbaca di sana, dan sebaliknya hasil jadwalnya ikut tersimpan &amp; tersinkron.</p>
+  <p><button class="btn p" onclick="bukaAppJadwal()">Buka aplikasi Jadwal Pelajaran ↗</button></p>
+  <p class="small muted">Alamatnya: teachdev-sylvya.github.io/Planner/jadwal.html — bisa dipasang sebagai aplikasi sendiri (ikon terpisah) lewat menu browser → Instal / Tambahkan ke layar utama.</p></div>`}
 let NAV_TUTUP={};try{NAV_TUTUP=JSON.parse(localStorage.getItem('navTutup')||'{}')}catch(e){}
 function navToggle(i){NAV_TUTUP[i]=!NAV_TUTUP[i];try{localStorage.setItem('navTutup',JSON.stringify(NAV_TUTUP))}catch(e){}render()}
 function navHtml(r){return NAV.map((g,i)=>{const aktif=g[1].some(x=>x[0]===r),tutup=NAV_TUTUP[i]&&!aktif,satu=g[1].length===1;
@@ -3717,17 +3727,24 @@ function vRpel(){const U=UI.rpl=UI.rpl||{};const t=rpTingkat();const kl=rpKelas(
   <div class="bar">${selT}${selK}<button class="btn" onclick="rpSetModal()">⚙ Pengaturan</button><label class="btn" style="cursor:pointer">📥 Impor Excel wali kelas<input type="file" accept=".xlsx,.xls" style="display:none" onchange="rpImpor(this.files[0]);this.value=''"></label><span class="sp"></span><button class="btn p" onclick="rpelAksi('cetakK')">🖨 Cetak satu kelas</button><button class="btn" onclick="rpelAksi('zipK')">⬇ Simpan satu kelas (ZIP, PDF per anak)</button><button class="btn" onclick="rpelAksi('pdfK')">⬇ Simpan satu kelas (1 PDF)</button></div>
   <div class="tw"><table><thead><tr><th>No</th><th>NISN / NIS</th><th>Nama</th><th>L/P</th><th>Data tambahan</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="6" class="empty">Belum ada siswa aktif.</td></tr>'}</tbody></table></div>`}
 
-const VIEWS={rpel:vRpel,abk:vABK,surat:vSurat,sk:vSK,cetak:vCetak,panitia:()=>guruList().length?ttPanitia():'<div class="card empty">Tambahkan data <a href="#guru">Guru</a> dulu.</div>',rapor:vRapor,ujian:vUjian,tt:vTT,dashboard:vDashboard,siswa:vSiswa,guru:vGuru,kelas:vKelas,mapel:vMapel,tugas:vTugas,jadwal:vJadwal,nilai:vNilai,supervisi:vSupervisi,perangkat:vPerangkat,agenda:()=>crudView('agenda'),kokurikuler:()=>`<div class="card small" style="background:var(--pri2);border-color:#cfe2da">Kokurikuler (pengganti P5) dapat berupa pembelajaran kolaboratif lintas disiplin, Gerakan 7 Kebiasaan Anak Indonesia Hebat, atau cara lain, dan dirancang untuk mengembangkan 8 dimensi profil lulusan.</div>`+crudView('kokurikuler'),proker:()=>crudView('proker'),pengganti:()=>crudView('pengganti'),pengaturan:vPengaturan};
-function route(){const h=location.hash.replace('#','');if(h==='panitia'){UI.tab=UI.tab||{};UI.tab.tt='kelola';UI.grpK='Kepanitiaan';history.replaceState(null,'','#tt');return 'tt'}return VIEWS[h]?h:'dashboard'}
+const VIEWS={rpel:vRpel,abk:vABK,surat:vSurat,sk:vSK,cetak:vCetak,panitia:()=>guruList().length?ttPanitia():'<div class="card empty">Tambahkan data <a href="#guru">Guru</a> dulu.</div>',rapor:vRapor,ujian:vUjian,tt:vTT,dashboard:vDashboard,siswa:vSiswa,guru:vGuru,kelas:vKelas,mapel:vMapel,tugas:vTugas,jadwal:vJadwal,nilai:vNilai,supervisi:vSupervisi,perangkat:vPerangkat,agenda:()=>crudView('agenda'),kokurikuler:()=>`<div class="card small" style="background:var(--pri2);border-color:#cfe2da">Kokurikuler (pengganti P5) dapat berupa pembelajaran kolaboratif lintas disiplin, Gerakan 7 Kebiasaan Anak Indonesia Hebat, atau cara lain, dan dirancang untuk mengembangkan 8 dimensi profil lulusan.</div>`+crudView('kokurikuler'),proker:()=>crudView('proker'),pengganti:()=>crudView('pengganti'),pengaturan:vPengaturan,jadwalapp:vJadwalApp,
+  j_lihat:vJadwal,j_susun:vJadwal,j_cetak:vJadwal,j_cadangan:()=>vCadangan(),
+  j_piket:()=>{if(!kelasList().length||!all('tugas').length)return vJadwal();return `<div class="bar"><span class="muted small">Atur manual (tambah/hapus petugas) di <a style="cursor:pointer;text-decoration:underline" onclick="UI.tab.jadwal='waktu';location.hash='#j_susun'">Susun Jadwal → Waktu &amp; Piket</a>.</span><span class="sp"></span><button class="btn p" onclick="piketOtomatis()">⚡ Susun piket otomatis</button></div>`+vCetakSimple('Jadwal Guru Piket',()=>[gPiketDoc()])}};
+function route(){const h=location.hash.replace('#','');if(h==='panitia'){UI.tab=UI.tab||{};UI.tab.tt='kelola';UI.grpK='Kepanitiaan';history.replaceState(null,'','#tt');return 'tt'}if(JMODE){let r=h;if(r==='jadwal'){const g=jGrup(UI.tab.jadwal);r=g>=0?['j_lihat','j_susun','j_cetak'][g]:'j_lihat';history.replaceState(null,'','#'+r)}
+    if(!NAV_J.some(g=>g[1].some(x=>x[0]===r)))r='j_lihat';
+    if(r in JRG){const gi=JRG[r];if(UI._jr!==r){if(jGrup(UI.tab.jadwal)!==gi)UI.tab.jadwal=(UI.jtLast&&UI.jtLast[gi])||JTAB[gi][1][0][0]}
+      else if(jGrup(UI.tab.jadwal)!==gi&&jGrup(UI.tab.jadwal)>=0){r=['j_lihat','j_susun','j_cetak'][jGrup(UI.tab.jadwal)];history.replaceState(null,'','#'+r)}}
+    UI._jr=r;return r}
+  if(h==='jadwal')return 'jadwalapp';return VIEWS[h]?h:'dashboard'}
 function render(){
   setTimeout(undoBtns,0);
   window._rid=(window._rid||0)+1;const r=route();S.firstRendered=true;setTimeout(navCatat,0);
   const label=NAV.flatMap(g=>g[1]).find(x=>x[0]===r)[2];
-  $('#side').innerHTML=`<div class="brand"><b>Wakasek Kurikulum</b><small>${esc(S.cfg.sekolah||'Sistem terintegrasi')}</small></div><nav class="nav">${navHtml(r)}</nav>`;
+  $('#side').innerHTML=`<div class="brand"><b>${JMODE?'Jadwal Pelajaran':'Wakasek Kurikulum'}</b><small>${esc(S.cfg.sekolah||'Sistem terintegrasi')}</small></div><nav class="nav">${navHtml(r)}</nav>`;
   $('#title').textContent=label==='Dasbor'&&S.cfg.sekolah?S.cfg.sekolah:label;
   $('#topmeta').innerHTML=`${S.cfg.kepsek?'Kepala Sekolah: <b>'+esc(S.cfg.kepsek)+'</b><br>':''}TA ${esc(S.cfg.tahun)} · ${esc(S.cfg.semester)}${S.mode==='db'?'':' · <span style="color:var(--acc)">lokal</span>'}`;
   const scroll=window.scrollY;const ae=document.activeElement;const aeSel=ae&&ae.closest&&ae.closest('#main')&&ae.tagName==='SELECT'?null:null;
-  try{$('#main').innerHTML=((r==='tugas'||r==='jadwal')?sknBanner():'')+VIEWS[r]()}catch(e){console.error(e);$('#main').innerHTML=`<div class="card empty">Terjadi kesalahan saat menampilkan halaman: ${esc(e.message)}</div>`}
+  try{$('#main').innerHTML=((JMODE||r==='tugas')?sknBanner():'')+VIEWS[r]()}catch(e){console.error(e);$('#main').innerHTML=`<div class="card empty">Terjadi kesalahan saat menampilkan halaman: ${esc(e.message)}</div>`}
   tabKeSamping();
   window.scrollTo(0,scroll);
 }

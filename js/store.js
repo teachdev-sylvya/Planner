@@ -68,7 +68,11 @@ function emitCol(c,l){const cur=new Set(colDocs(c,l.lim));const ch=[];
   cur.forEach(p=>{if(!l.known.has(p))ch.push({type:"added",doc:dsnap(p)});else if((DREV[p]||0)>l.rev)ch.push({type:"modified",doc:dsnap(p)})});
   l.known.forEach(p=>{if(!cur.has(p))ch.push({type:"removed",doc:dsnap(p)})});
   l.known=cur;l.rev=REV;if(!ch.length&&!l.first)return;l.first=false;try{l.cb(qsnap(c,l.lim,ch))}catch(e){console.error(e)}}
-function put(p,d,t){DOCS[p]={t:t||Date.now(),d:d==null?null:clone(d)};touch(p);changed(colOf(p))}
+function put(p,d,t){DOCS[p]={t:t||Date.now(),d:d==null?null:clone(d)};touch(p);changed(colOf(p));if(BC)try{BC.postMessage({p,t:DOCS[p].t,d:DOCS[p].d})}catch(e){}}
+/* tab/aplikasi lain di perangkat yang sama (Planner ⇄ Jadwal) langsung saling melihat perubahan */
+const BC=("BroadcastChannel" in window)?new BroadcastChannel("pdv-docs"):null;
+function bcA(id){if(BC)try{BC.postMessage({a:id,m:ASSETS[id]})}catch(e){}}
+if(BC)BC.onmessage=e=>{const m=e.data||{};if(DK&&m.a&&m.m){const o=ASSETS[m.a];if(!o||(o.t||0)<(m.m.t||0)){ASSETS[m.a]=m.m;if(URLS[m.a]){try{URL.revokeObjectURL(URLS[m.a])}catch(x){}delete URLS[m.a]}if(!m.m.del)loadAssetURL(m.a).catch(()=>{});scheduleSave()}return}if(!DK||!m.p)return;const l=DOCS[m.p];if(l&&l.t>=m.t)return;DOCS[m.p]={t:m.t,d:m.d};touch(m.p);DIRTY.add(colOf(m.p));scheduleSave();schedulePush(30000)};
 function docRef(p){return {id:idOf(p),path:p,
   get:async()=>{await whenUnlocked();return dsnap(p)},
   set:async(d,o)=>{await whenUnlocked();if(o&&o.merge&&DOCS[p]&&DOCS[p].d)d=Object.assign(clone(DOCS[p].d),clone(d));put(p,d)},
@@ -83,13 +87,13 @@ const dbApi={doc:docRef,collection:c=>colRef(c)};
 
 /* ---------------- file / aset ---------------- */
 async function putAsset(id,blob,opt){const b=new Uint8Array(await blob.arrayBuffer());const e=await aesEnc(DK,b);await kvSet(id,e,"aset");
-  ASSETS[id]={type:blob.type||(opt&&opt.type)||"application/octet-stream",size:b.length,t:Date.now()};try{if(URLS[id])URL.revokeObjectURL(URLS[id])}catch(e){}URLS[id]=URL.createObjectURL(new Blob([b],{type:ASSETS[id].type}));scheduleSave();changed("~aset")}
+  ASSETS[id]={type:blob.type||(opt&&opt.type)||"application/octet-stream",size:b.length,t:Date.now()};try{if(URLS[id])URL.revokeObjectURL(URLS[id])}catch(e){}URLS[id]=URL.createObjectURL(new Blob([b],{type:ASSETS[id].type}));scheduleSave();changed("~aset");bcA(id)}
 async function loadAssetURL(id){if(URLS[id])return URLS[id];const e=await kvGet(id,"aset");if(!e)return null;const b=await aesDec(DK,e);URLS[id]=URL.createObjectURL(new Blob([b],{type:(ASSETS[id]&&ASSETS[id].type)||""}));return URLS[id]}
 async function loadAllAssetURLs(){for(const id in ASSETS){if(ASSETS[id].del)continue;try{await loadAssetURL(id)}catch(e){}}}
 window.__pdvBlob=id=>URLS[id]||("data:text/plain,"+encodeURIComponent("File belum tersedia di perangkat ini"));
 const assetsApi={
   upload:async(blob,opt)=>{await whenUnlocked();const id=[...rnd(16)].map(x=>x.toString(16).padStart(2,"0")).join("");await putAsset(id,blob,opt);return {id,url:URLS[id],contentType:ASSETS[id].type,sizeBytes:ASSETS[id].size}},
-  delete:async id=>{await whenUnlocked();if(ASSETS[id]){ASSETS[id]={...ASSETS[id],del:true,t:Date.now()};await kvDel(id,"aset");try{URL.revokeObjectURL(URLS[id])}catch(e){}delete URLS[id];scheduleSave();changed("~aset")}},
+  delete:async id=>{await whenUnlocked();if(ASSETS[id]){ASSETS[id]={...ASSETS[id],del:true,t:Date.now()};await kvDel(id,"aset");try{URL.revokeObjectURL(URLS[id])}catch(e){}delete URLS[id];scheduleSave();changed("~aset");bcA(id)}},
   url:id=>URLS[id]||null};
 
 /* ---------------- unduhan ---------------- */
@@ -226,7 +230,7 @@ function status(m){if(m!=null)stMsg=m;const lk=document.querySelector("#pdvLock 
   b.textContent=t}
 function lockUI(mode,msg){
   let w=$("#pdvLock");if(!w){w=el('<div id="pdvLock"></div>');document.body.appendChild(w)}
-  const head=`<img src="devy.png" alt=""><h1>Planner Devy</h1>`;
+  const head=`<img src="devy.png" alt=""><h1>${window.PDV_HOST==="jadwal"?"Jadwal Pelajaran":"Planner Devy"}</h1>${window.PDV_HOST==="jadwal"?'<p style="margin:-4px 0 8px;font-size:13px">Pakai kata sandi yang sama dengan Planner Devy</p>':""}`;
   if(mode==="unlock")w.innerHTML=`<div class="bx">${head}<p>Masukkan kata sandi untuk membuka planner.</p><input id="pw" type="password" autocomplete="current-password" placeholder="Kata sandi"><label class="row"><input id="rem" type="checkbox" checked> Ingat di perangkat ini</label><div class="err">${esc(msg||"")}</div><button class="pdvB" id="go">Buka</button><p style="margin-top:14px"><a id="forgot">Lupa kata sandi?</a></p></div>`;
   else if(mode==="new")w.innerHTML=`<div class="bx">${head}<p>Selamat datang! Pilih cara memulai:</p><button class="pdvB" id="mNew">Mulai baru di perangkat ini</button><button class="pdvB l" id="mJoin">Sambungkan ke data yang sudah ada (dari HP/laptop lain)</button><p style="margin-top:12px;font-size:12.5px">Semua data dienkripsi dengan kata sandi Ibu. Tanpa kata sandi, isinya tidak bisa dibaca siapa pun.</p></div>`;
   else if(mode==="create")w.innerHTML=`<div class="bx">${head}<p><b>Buat kata sandi</b><br>Kata sandi ini dipakai untuk membuka planner di semua perangkat. <b>Simpan baik-baik</b>: kalau lupa, data tidak bisa dibuka.</p><input id="pw1" type="password" autocomplete="new-password" placeholder="Kata sandi (min. 8 karakter)"><input id="pw2" type="password" autocomplete="new-password" placeholder="Ulangi kata sandi"><label class="row"><input id="rem" type="checkbox" checked> Ingat di perangkat ini</label><div class="err">${esc(msg||"")}</div><button class="pdvB" id="go">Simpan & buka planner</button><button class="pdvB l" id="back">Kembali</button></div>`;
@@ -264,8 +268,9 @@ async function afterUnlock(){
   status();
   loadAllAssetURLs().then(()=>{if(window.renderPage)try{window.renderPage()}catch(e){}});
   /* muat planner */
-  const s=document.createElement("script");s.src="js/planner.js?v="+(window.PDV_V||1);document.body.appendChild(s);
-  setTimeout(()=>{const x=document.createElement("script");x.src="js/stiker-ekstra.js?v=1";document.body.appendChild(x)},600);
+  if(window.PDV_HOST==="jadwal"){const s=document.createElement("script");s.src="js/jadwal-host.js?v="+(window.PDV_V||1);document.body.appendChild(s)}
+  else{const s=document.createElement("script");s.src="js/planner.js?v="+(window.PDV_V||1);document.body.appendChild(s);
+  setTimeout(()=>{const x=document.createElement("script");x.src="js/stiker-ekstra.js?v=1";document.body.appendChild(x)},600)}
   if(CFG.token){setTimeout(()=>sync(),1500);setInterval(()=>{if(!document.hidden)sync()},120000)}
   document.addEventListener("visibilitychange",()=>{if(!CFG.token||!DK)return;if(document.hidden){if(DIRTY.size)sync()}else sync()});
   window.addEventListener("online",()=>{if(CFG.token)sync()});
